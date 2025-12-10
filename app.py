@@ -6,7 +6,7 @@ import random
 import json
 import os
 import re
-import html  # 💥 חדש: ספרייה לטיפול בקודי HTML
+import html
 
 # הגדרות בסיסיות
 app = Flask(__name__)
@@ -21,59 +21,45 @@ def get_db_connection():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
+# בתוך app.py - החלף את הפונקציה הזו בלבד
 
 def get_navigation_data():
     conn = get_db_connection()
-    # המיון ORDER BY topic, id מבטיח שהמספור יהיה הגיוני ועוקב
+    # שליפה מסודרת
     questions = conn.execute(
-        'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, id' 
+        'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, sub_topic, id'
     ).fetchall()
     conn.close()
     
     navigation_tree = {}
-    topic_counters = {} # מונה לכל נושא ראשי
+    topic_counters = {} 
     
     for q in questions:
         topic = q['topic']
         sub_topic = q['sub_topic']
         
-        # אתחול נושא חדש
         if topic not in navigation_tree:
             navigation_tree[topic] = {'sub_topics': {}}
-            topic_counters[topic] = 0 # איפוס מונה לנושא
+            topic_counters[topic] = 0 
         
-        # קידום המונה
         topic_counters[topic] += 1
         
         if sub_topic not in navigation_tree[topic]['sub_topics']:
             navigation_tree[topic]['sub_topics'][sub_topic] = []
             
-        # יצירת הטקסט עם המספר
-        q_text = q['question_text']
-        short_text = q_text[:40] + '...' if len(q_text) > 40 else q_text
-        numbered_text = f"{topic_counters[topic]}. {short_text}" # דוגמה: "1. מטופל..."
-        
         navigation_tree[topic]['sub_topics'][sub_topic].append({
             'id': q['id'],
-            'text': numbered_text
+            'number': topic_counters[topic],  # 💥 המספר נשלח בנפרד לריבוע
+            'text': q['question_text']        # הטקסט נשמר לטולטיפ (Tooltip)
         })
-        
     return navigation_tree
-# 💥 פונקציית הניקוי האגרסיבית והבטוחה ביותר 💥
+# פונקציית הניקוי (לא שונתה)
 def clean_text_for_comparison(text):
     if not text:
         return ""
-    
-    # 1. המרה של קודי HTML (כמו &#39;) חזרה לסימנים רגילים (')
     text = html.unescape(text)
-    
-    # 2. שינוי לאותיות קטנות
     text = text.lower()
-    
-    # 3. השארת אותיות ומספרים בלבד (מוחק רווחים, גרשיים, סוגריים, הכל!)
-    # בסוף נשאר משהו כמו: "hodgkinslymphoma"
     cleaned_text = re.sub(r'[^a-z0-9א-ת]', '', text)
-    
     return cleaned_text
 
 # ----------------------------------------------------------------------
@@ -145,7 +131,8 @@ def start_quiz():
         return redirect(url_for('get_question', question_id=q['id'])) if q else ("שגיאה", 404)
 
     if topic:
-        q = conn.execute('SELECT id FROM Questions WHERE topic = ? ORDER BY id LIMIT 1', (topic,)).fetchone()
+        # שליפת השאלה הראשונה בנושא לפי הסדר הנכון (Sub topic ואז ID)
+        q = conn.execute('SELECT id FROM Questions WHERE topic = ? ORDER BY sub_topic, id LIMIT 1', (topic,)).fetchone()
         conn.close()
         return redirect(url_for('get_question', question_id=q['id'])) if q else ("לא נמצא", 404)
             
@@ -162,8 +149,33 @@ def get_question(question_id):
         conn.close()
         return "השאלה לא נמצאה.", 404
     
-    next_q = conn.execute('SELECT id FROM Questions WHERE id > ? ORDER BY id LIMIT 1', (question_id,)).fetchone()
-    prev_q = conn.execute('SELECT id FROM Questions WHERE id < ? ORDER BY id DESC LIMIT 1', (question_id,)).fetchone()
+    current_topic = question['topic']
+
+    # 💥 שליפת כל השאלות של הטופיק, מסודרות בדיוק כמו בתפריט (Sub-topic ואז ID)
+    topic_questions = conn.execute(
+        'SELECT id FROM Questions WHERE topic = ? ORDER BY sub_topic, id',
+        (current_topic,)
+    ).fetchall()
+    
+    # המרה לרשימת IDs כדי למצוא מיקום
+    topic_ids = [q['id'] for q in topic_questions]
+    
+    try:
+        current_index = topic_ids.index(question_id)
+        current_q_in_category = current_index + 1 # המספר שיוצג (למשל 11)
+        total_q_in_category = len(topic_ids)
+        
+        # חישוב הבא/הקודם בתוך הרשימה המסודרת של הנושא
+        next_q_id = topic_ids[current_index + 1] if current_index + 1 < total_q_in_category else None
+        prev_q_id = topic_ids[current_index - 1] if current_index > 0 else None
+        
+    except ValueError:
+        current_q_in_category = 1
+        total_q_in_category = 1
+        next_q_id = None
+        prev_q_id = None
+
+    # עבור כפתור "סיום" בסוף הכל (לא קריטי ללוגיקה הפנימית אבל קיים)
     all_q_ids = [q['id'] for q in conn.execute('SELECT id FROM Questions ORDER BY id').fetchall()]
     conn.close()
 
@@ -172,10 +184,14 @@ def get_question(question_id):
     random.shuffle(options)
     
     return render_template('question.html', 
-                           question=question, options=options, 
-                           next_id=next_q['id'] if next_q else None,
-                           prev_id=prev_q['id'] if prev_q else None,
-                           all_q_ids=all_q_ids, navigation_data=get_navigation_data())
+                           question=question, 
+                           options=options, 
+                           next_id=next_q_id,
+                           prev_id=prev_q_id,
+                           all_q_ids=all_q_ids, 
+                           navigation_data=get_navigation_data(),
+                           current_q_in_category=current_q_in_category,
+                           total_q_in_category=total_q_in_category)
 
 @app.route('/check_answer', methods=['POST'])
 def check_answer():
@@ -188,11 +204,11 @@ def check_answer():
 
     if q is None: return jsonify({"error": "לא נמצא"}), 404
     
-    # 💥 ניקוי והשוואה
+    # ניקוי והשוואה
     user_clean = clean_text_for_comparison(user_input)
     db_clean = clean_text_for_comparison(q['correct_answer'])
     
-    # 🕵️ הדפסת דיבאג לטרמינל - תראה את זה כשתלחץ על כפתור
+    # דיבאג לטרמינל
     print(f"\n--- בדיקת תשובה ---")
     print(f"Original User: {user_input}")
     print(f"Cleaned User : {user_clean}")

@@ -5,17 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מבחנים - {{ question['topic'] }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
     <style>
         body { background-color: #f8f9fa; }
         .answer-btn { transition: all 0.2s; }
         .answer-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        /* סימון של שאלה נוכחית בסיידבר */
-        .active-question-marker { border-right: 5px solid #198754 !important; font-weight: bold; }
+        
+        /* === עיצוב ריבועי הניווט === */
+        .nav-square {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        
+        /* מצב רגיל (לא פעיל) */
+        .nav-square-default {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            color: #6c757d;
+        }
+        .nav-square-default:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+            color: #495057;
+        }
+
+        /* מצב פעיל (השאלה הנוכחית) */
+        .nav-square-active {
+            background-color: #198754; /* ירוק */
+            border: 1px solid #198754;
+            color: white !important;
+            box-shadow: 0 0 8px rgba(25, 135, 84, 0.4);
+            transform: scale(1.1);
+        }
+
+        /* עיצוב כותרות בתפריט */
+        .sub-topic-header {
+            font-size: 0.85rem;
+            color: #6c757d;
+            border-bottom: 1px solid #eee;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            padding-bottom: 2px;
+        }
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand" href="{{ url_for('index') }}">🏠 חזרה לראשי</a>
         <span class="navbar-text text-white">
@@ -27,15 +72,14 @@
 <div class="container-fluid pb-5">
     <div class="row">
 
-        <main class="col-12 col-md-9 order-1 order-md-2 mb-4">
-            
-            <div class="card shadow">
-                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+        <main class="col-12 col-md-8 col-lg-9 order-1 order-md-2 mb-4">
+            <div class="card shadow border-0">
+                <div class="card-header bg-white pt-4 px-4 border-bottom-0">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge bg-primary rounded-pill">{{ question['topic'] }}</span>
+                        <span class="badge bg-primary rounded-pill px-3 py-2">{{ question['topic'] }}</span>
                         <span class="text-muted small">ID: {{ question['id'] }}</span>
                     </div>
-                    <h5 class="text-primary mb-1">
+                    <h5 class="text-primary mb-1 fw-bold">
                         {{ question['sub_topic'] }}
                     </h5>
                     <div class="text-secondary fw-bold">
@@ -44,7 +88,7 @@
                 </div>
                 
                 <div class="card-body px-4 py-3">
-                    <h4 class="card-title mb-4 lh-base text-dark fw-bold">
+                    <h4 class="card-title mb-4 lh-base text-dark fw-bold mt-2">
                         {{ question['question_text'] }}
                     </h4>
                     
@@ -55,7 +99,7 @@
                         <div class="d-grid gap-3">
                             {% for option in options %}
                             <button type="button" 
-                                    class="btn btn-outline-dark text-end p-3 answer-btn fs-5" 
+                                    class="btn btn-outline-dark text-end p-3 answer-btn fs-5 shadow-sm border-2" 
                                     style="white-space: normal;"
                                     onclick="submitAnswer(this, '{{ option }}')">
                                 {{ option }}
@@ -65,65 +109,75 @@
                     </form>
 
                     <div id="result-area" class="mt-4" style="display: none;">
-                        <div id="alert-box" class="alert p-3" role="alert"></div>
-                        
-                        <div class="card bg-light border-0">
+                        <div id="alert-box" class="alert p-3 shadow-sm" role="alert"></div>
+                        <div class="card bg-light border-0 shadow-sm">
                             <div class="card-body">
-                                <h6 class="fw-bold text-decoration-underline">הסבר מפורט:</h6>
+                                <h6 class="fw-bold text-decoration-underline text-primary">הסבר מפורט:</h6>
                                 <p id="explanation-text" class="mb-0 fs-6 lh-lg"></p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card-footer bg-light p-3 d-flex justify-content-between">
+                <div class="card-footer bg-light p-3 d-flex justify-content-between align-items-center">
                     {% if prev_id %}
-                        <a href="{{ url_for('get_question', question_id=prev_id) }}" class="btn btn-outline-secondary px-4">➜ שאלה קודמת</a>
+                        <a href="{{ url_for('get_question', question_id=prev_id) }}" class="btn btn-outline-secondary px-4">➜ קודם</a>
                     {% else %}
-                        <button class="btn btn-outline-secondary px-4 disabled">➜ שאלה קודמת</button>
+                        <button class="btn btn-outline-secondary px-4 disabled">➜ קודם</button>
                     {% endif %}
 
                     {% if next_id %}
-                        <a href="{{ url_for('get_question', question_id=next_id) }}" class="btn btn-primary px-4 fw-bold">שאלה הבאה ⬅</a>
+                        <a href="{{ url_for('get_question', question_id=next_id) }}" class="btn btn-primary px-4 fw-bold shadow-sm">הבא ⬅</a>
                     {% else %}
-                        <a href="{{ url_for('index') }}" class="btn btn-success px-4">סיום פרק 🏁</a>
+                        <a href="{{ url_for('index') }}" class="btn btn-success px-4 fw-bold shadow-sm">סיום 🏁</a>
                     {% endif %}
                 </div>
             </div>
         </main>
 
-        <aside class="col-12 col-md-3 order-2 order-md-1">
+        <aside class="col-12 col-md-4 col-lg-3 order-2 order-md-1">
             
-            <button class="btn btn-primary w-100 mb-3 d-md-none shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
-                ☰ הצג רשימת שאלות
+            <button class="btn btn-primary w-100 mb-3 d-md-none shadow-sm fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
+                ☰ מפת שאלות
             </button>
 
             <div class="collapse d-md-block" id="sidebarMenu">
                 <div class="card shadow-sm border-0" style="max-height: 85vh; overflow-y: auto;">
-                    <div class="card-header bg-dark text-white sticky-top">
-                        <i class="bi bi-list-ul"></i> ניווט בפרק
+                    <div class="card-header bg-dark text-white sticky-top shadow-sm">
+                        <i class="bi bi-grid-3x3-gap-fill"></i> מפת שאלות
                     </div>
                     
-                    <div class="list-group list-group-flush">
+                    <div class="card-body bg-light p-3">
                         {% for topic, topic_data in navigation_data.items() %}
                             
-                            <div class="list-group-item bg-light fw-bold text-primary border-bottom">
-                                {{ topic }}
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-dark border-bottom border-2 border-primary pb-1 mb-2">
+                                    {{ topic }}
+                                </h6>
+
+                                {% for sub, questions in topic_data.sub_topics.items() %}
+                                    <div class="mb-2">
+                                        <div class="sub-topic-header">
+                                            {{ sub }}
+                                        </div>
+                                        
+                                        <div class="d-flex flex-wrap gap-2">
+                                            {% for q_data in questions %}
+                                                <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
+                                                   class="nav-square 
+                                                   {% if q_data.id == question.id %} 
+                                                        nav-square-active 
+                                                   {% else %} 
+                                                        nav-square-default 
+                                                   {% endif %}"
+                                                   title="{{ q_data.text }}"> {{ q_data.number }}
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
                             </div>
 
-                            {% for sub, questions in topic_data.sub_topics.items() %}
-                                {% for q_data in questions %}
-                                    
-                                    <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
-                                       class="list-group-item list-group-item-action small py-2 lh-sm
-                                       {% if q_data.id == question.id %} 
-                                            list-group-item-success active-question-marker
-                                       {% endif %}"
-                                       id="nav-link-{{ q_data.id }}">
-                                        {{ q_data.text }}
-                                    </a>
-                                {% endfor %}
-                            {% endfor %}
                         {% endfor %}
                     </div>
                 </div>
@@ -135,15 +189,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // הפעלת Tooltips של בוטסטראפ (כדי לראות את הטקסט כשעומדים על הריבוע)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+
     function submitAnswer(btnElement, selectedOption) {
         const form = document.getElementById('quiz-form');
         const questionId = form.querySelector('input[name="question_id"]').value;
         const allButtons = form.querySelectorAll('button');
 
-        // נטרול כפתורים למניעת לחיצה כפולה
         allButtons.forEach(btn => btn.classList.add('disabled'));
 
-        // שליחת נתונים לשרת
         const formData = new FormData();
         formData.append('question_id', questionId);
         formData.append('selected_answer', selectedOption);
@@ -158,41 +216,26 @@
             const alertBox = document.getElementById('alert-box');
             const explanationText = document.getElementById('explanation-text');
 
-            // עדכון הממשק
             resultArea.style.display = 'block';
-            explanationText.innerHTML = data.explanation; // שימוש ב-innerHTML כדי לאפשר הדגשות
+            explanationText.innerHTML = data.explanation; 
 
-            // סימון ויזואלי של הכפתורים
             if (data.is_correct) {
-                // תשובה נכונה
                 btnElement.classList.remove('btn-outline-dark');
                 btnElement.classList.add('btn-success');
                 alertBox.className = 'alert alert-success fw-bold';
                 alertBox.innerHTML = '✅ כל הכבוד! תשובה נכונה.';
             } else {
-                // תשובה שגויה
                 btnElement.classList.remove('btn-outline-dark');
-                btnElement.classList.add('btn-danger'); // אדום למה שנלחץ
-                
+                btnElement.classList.add('btn-danger');
                 alertBox.className = 'alert alert-danger fw-bold';
-                alertBox.innerHTML = '❌ שגיאה. התשובה הנכונה מסומנת בירוק.';
+                alertBox.innerHTML = '❌ טעות. התשובה הנכונה מסומנת בירוק.';
 
-                // חיפוש וסימון התשובה הנכונה בירוק
                 allButtons.forEach(btn => {
-                    // מנקה את הטקסט בכפתור ובשרת לצורך השוואה (כמו שעשינו בשרת)
-                    // אבל כדי להיות בטוחים, נחפש את הטקסט המקורי
                     if (btn.innerText.includes(data.correct_answer) || data.correct_answer.includes(btn.innerText)) {
                          btn.classList.remove('btn-outline-dark');
                          btn.classList.add('btn-success');
                     }
                 });
-            }
-
-            // שמירה בזיכרון המקומי ששאלה זו נענתה (לסימון עתידי אם תרצה)
-            let answered = JSON.parse(localStorage.getItem('answered_questions') || '[]');
-            if (!answered.includes(parseInt(questionId))) {
-                answered.push(parseInt(questionId));
-                localStorage.setItem('answered_questions', JSON.stringify(answered));
             }
         })
         .catch(error => {
