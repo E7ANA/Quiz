@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת למידה - תפריט ראשי</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; padding: 40px; text-align: center; }
+        .card { background: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        select, input, button { width: 100%; padding: 10px; margin: 10px 0; font-size: 1.1em; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🎓 ברוך הבא!</h1>
+        <p>יש במערכת סך הכל <strong>{{ total_questions }}</strong> שאלות.</p>
+        
+        <form action="/quiz" method="get">
+            <label>בחר נושא:</label>
+            <select name="topic">
+                {% for row in topics %}
+                    <option value="{{ row['topic'] }}">{{ row['topic'] }}</option>
+                {% endfor %}
+            </select>
+
+            <label>או קפוץ למספר שאלה:</label>
+            <input type="number" name="start_id" placeholder="למשל: 5">
+
+            <button type="submit">התחל מבחן</button>
+        </form>
+    </div>
+</body>
+</html>

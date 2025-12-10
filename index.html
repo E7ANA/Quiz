@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת למידה - תפריט ראשי</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #f4f4f9; 
+            padding: 40px; 
+            text-align: center; 
+        }
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            max-width: 500px; 
+            margin: 0 auto; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        }
+        h1 { 
+            color: #007bff; 
+        }
+        select, input, button { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0; 
+            font-size: 1.1em; 
+            border: 1px solid #ccc; 
+            border-radius: 5px; 
+            box-sizing: border-box; 
+        }
+        button { 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            transition: background 0.3s;
+        }
+        button:hover { 
+            background: #1e7e34; 
+        }
+        .error { 
+            color: red; 
+            font-weight: bold; 
+            margin-top: 15px; 
+            border: 1px solid red; 
+            padding: 10px; 
+            background: #fff0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🎓 ברוך הבא למבחן!</h1>
+        <p>יש במערכת סך הכל <strong>{{ total_questions }}</strong> שאלות.</p>
+        
+        {% if total_questions == 0 %}
+            <div class="error">
+                אין שאלות בבסיס הנתונים. אנא וודא שביצעת את שלבי ההתקנה: <br>
+                1. מחק את quiz_db.sqlite הישן (אם קיים).<br>
+                2. הרץ: `python3 db_setup.py`<br>
+                3. הרץ: `python3 data_manager.py`
+            </div>
+        {% else %}
+            <form action="/quiz" method="get">
+                <label style="display: block; text-align: right; margin-top: 15px;">בחר נושא להתחלה:</label>
+                <select name="topic">
+                    <option value="">-- בחר נושא או התחל מהראשון --</option>
+                    {% for row in topics %}
+                        <option value="{{ row['topic'] }}">{{ row['topic'] }}</option>
+                    {% endfor %}
+                </select>
+
+                <label style="display: block; text-align: right; margin-top: 15px;">או קפוץ למספר שאלה ספציפי:</label>
+                <input type="number" name="start_id" placeholder="למשל: 5" min="1" max="{{ total_questions }}">
+
+                <button type="submit">התחל/המשך מבחן</button>
+            </form>
+        {% endif %}
+    </div>
+</body>
+</html>

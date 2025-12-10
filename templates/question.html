@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>שאלה {{ question.id }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            text-align: right;
+        }
+        .main-layout {
+            display: flex; 
+            min-height: 100vh;
+        }
+        
+        /* סרגל צד - ניווט */
+        .sidebar {
+            width: 250px; 
+            background: #fff;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto; 
+            border-left: 1px solid #ddd;
+        }
+        .sidebar h3 {
+            border-bottom: 2px solid #5cb85c;
+            padding-bottom: 5px;
+            margin-top: 15px;
+            color: #5cb85c;
+        }
+        
+        /* מבנה קומפקטי לריבועי שאלות */
+        .sidebar ul {
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 5px; 
+            list-style: none;
+            padding: 0;
+            margin-bottom: 15px;
+        }
+        .sidebar ul li {
+            flex-basis: auto; 
+        }
+        .sidebar ul li a {
+            /* ההגדרות שהופכות את הלינק לקובייה */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 30px; 
+            height: 30px; 
+            padding: 0;
+            font-size: 0.8em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.2s;
+        }
+        .sidebar ul li a:hover:not(.active):not(.answered) {
+            background-color: #f0f0f0;
+        }
+
+        .sub-topic-header {
+            font-weight: bold;
+            background: #f0f0f0;
+            padding: 5px;
+            margin-top: 10px;
+            border-radius: 3px;
+        }
+
+        /* סימון השאלה הפעילה (ירוק) */
+        .sidebar ul li a.active {
+            background-color: #5cb85c;
+            color: white !important;
+            border-color: #28a745;
+            font-weight: bold;
+        }
+        
+        /* סימון שאלה שנענתה (כחול) */
+        .answered {
+            background-color: #007bff !important; 
+            color: white !important;
+            border-color: #0056b3 !important;
+            font-weight: bold;
+        }
+
+        /* --- תוכן ראשי --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
+            max-width: 900px;
+        }
+        .header-info { display: flex; justify-content: space-between; color: #666; font-size: 0.9em; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
+        .question-text { font-size: 1.4em; font-weight: bold; margin: 20px 0; }
+        .option-button { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #e0e0e0; border: none; border-radius: 5px; text-align: right; cursor: pointer; font-size: 1.1em; }
+        .correct { background: #d4edda !important; border: 2px solid #28a745; }
+        .incorrect { background: #f8d7da !important; border: 2px solid #dc3545; }
+        #explanation { display: none; background: #fff3cd; padding: 15px; margin-top: 20px; border-radius: 5px; }
+        .nav-buttons { margin-top: 20px; display: flex; justify-content: space-between; }
+        .nav-btn { text-decoration: none; padding: 10px 20px; background: #007bff; color: white; border-radius: 5px; }
+        .nav-btn.disabled { background: #ccc; pointer-events: none; }
+
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    
+    <div class="sidebar">
+        <h2>🗺️ מפת שאלות</h2>
+        <a href="/" style="display:block; margin-bottom: 15px; color:#007bff; text-decoration: none; border-bottom: 1px solid #eee; padding-bottom: 5px;">חזרה לתפריט הראשי</a>
+        
+        {% for topic, sub_topics in navigation_data.items() %}
+            <h3>{{ topic }}</h3>
+            {% for sub_topic, questions in sub_topics.items() %}
+                <div class="sub-topic-header">{{ sub_topic }}</div>
+                <ul>
+                    {% for q in questions %}
+                        <li>
+                            <a href="{{ url_for('get_question', question_id=q.id) }}" 
+                               id="nav-q-{{ q.id }}"
+                               data-id="{{ q.id }}"
+                               class="{% if q.id == question.id %}active{% endif %}">
+                                {{ q.id }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <div class="main-content">
+        <div class="container">
+            <div class="header-info">
+                <span>📂 נושא: <strong>{{ question.topic }}</strong> | פרק: {{ question.sub_topic }}</span>
+                <span>#️⃣ שאלה מספר: <strong>{{ question.id }}</strong></span>
+            </div>
+
+            <div class="question-text">{{ question.question_text }}</div>
+            <input type="hidden" id="q_id" value="{{ question.id }}">
+
+            <div id="options">
+                {% for option in options %}
+                    <button class="option-button" onclick="check(this, '{{ option }}')">{{ option }}</button>
+                {% endfor %}
+            </div>
+
+            <div id="explanation">
+                <h3>הסבר:</h3>
+                <p id="exp-text"></p>
+            </div>
+
+            <div class="nav-buttons">
+                {% if prev_id %}
+                    <a href="{{ url_for('get_question', question_id=prev_id) }}" class="nav-btn">➡️ שאלה קודמת</a>
+                {% else %}
+                    <a href="#" class="nav-btn disabled">➡️ שאלה קודמת</a>
+                {% endif %}
+
+                <a href="/" class="nav-btn" style="background:#6c757d">🏠 תפריט</a>
+
+                {% if next_id %}
+                    <a href="{{ url_for('get_question', question_id=next_id) }}" class="nav-btn">שאלה הבאה ⬅️</a>
+                {% else %}
+                    <a href="#" class="nav-btn disabled">שאלה הבאה ⬅️</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let answered = false;
+
+    // ----------------------------------------------------
+    // פונקציה 1: טעינת מצב התשובות והגלילה האוטומטית
+    // ----------------------------------------------------
+    function loadAnsweredState() {
+        const answeredQuestions = JSON.parse(localStorage.getItem('quizAnswered')) || {};
+        
+        // 1. סמן שאלות שכבר נענו בכחול
+        document.querySelectorAll('.sidebar a').forEach(link => {
+            const id = link.getAttribute('data-id');
+            if (id && answeredQuestions[id]) {
+                link.classList.add('answered');
+            }
+        });
+        
+        // 2. גלול אוטומטית לשאלה הפעילה
+        const activeLink = document.querySelector('.sidebar a.active');
+        if (activeLink) {
+            activeLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // ----------------------------------------------------
+    // פונקציה 2: שמירת מצב התשובה ב-Local Storage
+    // ----------------------------------------------------
+    function saveAnsweredState(questionId) {
+        let answeredQuestions = JSON.parse(localStorage.getItem('quizAnswered')) || {};
+        answeredQuestions[questionId] = true; 
+        localStorage.setItem('quizAnswered', JSON.stringify(answeredQuestions));
+        
+        // עדכון צבע הקישור ב-Sidebar
+        const navLink = document.getElementById(`nav-q-${questionId}`);
+        if (navLink) {
+            navLink.classList.add('answered');
+        }
+    }
+
+    // ----------------------------------------------------
+    // פונקציה 3: בדיקת התשובה (AJAX)
+    // ----------------------------------------------------
+    function check(btn, answer) {
+        if(answered) return;
+        answered = true; // מונע הקלקה נוספת
+
+        let q_id = document.getElementById('q_id').value;
+        let formData = new FormData();
+        formData.append('selected_answer', answer);
+        formData.append('question_id', q_id);
+
+        fetch('/check_answer', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if(data.is_correct) {
+                btn.classList.add('correct');
+            } else {
+                btn.classList.add('incorrect');
+                // סמן את התשובה הנכונה
+                document.querySelectorAll('.option-button').forEach(b => {
+                    if(b.innerText === data.correct_answer) b.classList.add('correct');
+                });
+            }
+            
+            document.getElementById('exp-text').innerHTML = data.explanation;
+            document.getElementById('explanation').style.display = 'block';
+
+            // שמור את מצב השאלה כנענתה
+            saveAnsweredState(q_id);
+        });
+    }
+
+    // הפעלת פונקציית הטעינה לאחר טעינת כל ה-HTML
+    window.onload = loadAnsweredState;
+</script>
+
+</body>
+</html>
