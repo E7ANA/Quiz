@@ -24,23 +24,41 @@ def get_db_connection():
 
 def get_navigation_data():
     conn = get_db_connection()
+    # המיון ORDER BY topic, id מבטיח שהמספור יהיה הגיוני ועוקב
     questions = conn.execute(
-        'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, sub_topic, id'
+        'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, id' 
     ).fetchall()
     conn.close()
     
     navigation_tree = {}
+    topic_counters = {} # מונה לכל נושא ראשי
+    
     for q in questions:
         topic = q['topic']
         sub_topic = q['sub_topic']
-        if topic not in navigation_tree: navigation_tree[topic] = {}
-        if sub_topic not in navigation_tree[topic]: navigation_tree[topic][sub_topic] = []
-        navigation_tree[topic][sub_topic].append({
+        
+        # אתחול נושא חדש
+        if topic not in navigation_tree:
+            navigation_tree[topic] = {'sub_topics': {}}
+            topic_counters[topic] = 0 # איפוס מונה לנושא
+        
+        # קידום המונה
+        topic_counters[topic] += 1
+        
+        if sub_topic not in navigation_tree[topic]['sub_topics']:
+            navigation_tree[topic]['sub_topics'][sub_topic] = []
+            
+        # יצירת הטקסט עם המספר
+        q_text = q['question_text']
+        short_text = q_text[:40] + '...' if len(q_text) > 40 else q_text
+        numbered_text = f"{topic_counters[topic]}. {short_text}" # דוגמה: "1. מטופל..."
+        
+        navigation_tree[topic]['sub_topics'][sub_topic].append({
             'id': q['id'],
-            'text': q['question_text'][:50] + '...' if len(q['question_text']) > 50 else q['question_text']
+            'text': numbered_text
         })
+        
     return navigation_tree
-
 # 💥 פונקציית הניקוי האגרסיבית והבטוחה ביותר 💥
 def clean_text_for_comparison(text):
     if not text:
