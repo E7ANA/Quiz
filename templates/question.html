@@ -3,75 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת מבחנים - {{ question['topic'] }}</title>
+    <title>תרגול - {{ question['topic'] }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    
     <style>
-        body { background-color: #f8f9fa; font-size: 0.9rem; /* הקטנת פונט בסיסי */ }
-        .answer-btn { transition: all 0.2s; font-size: 0.95rem !important; padding: 0.5rem 1rem !important; }
-        .answer-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body { background-color: #f8f9fa; font-size: 0.95rem; }
+        .answer-btn { white-space: normal; transition: transform 0.1s; }
+        .answer-btn:active { transform: scale(0.98); }
+        .img-preview { cursor: zoom-in; transition: opacity 0.2s; }
+        .img-preview:hover { opacity: 0.9; }
         
-        /* === עיצוב ריבועי הניווט (מוקטן) === */
-        .nav-square {
-            width: 32px;  /* הוקטן מ-40 */
-            height: 32px; /* הוקטן מ-40 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.75rem; /* מספרים קטנים יותר */
-            border-radius: 6px;
-            transition: all 0.2s;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        
-        /* מצב רגיל (טרם נענה) */
-        .nav-square-default {
-            background-color: #fff;
-            border: 1px solid #dee2e6;
-            color: #6c757d;
-        }
-        .nav-square-default:hover {
-            background-color: #e9ecef;
-            border-color: #adb5bd;
-            color: #495057;
-        }
-
-        /* מצב נענה (כחול) */
-        .nav-square-answered {
-            background-color: #0d6efd; /* כחול */
-            border: 1px solid #0d6efd;
-            color: white !important;
-        }
-        .nav-square-answered:hover {
-            background-color: #0b5ed7;
-        }
-
-        /* מצב פעיל - נוכחי (ירוק - דורס הכל) */
-        .nav-square-active {
-            background-color: #198754 !important; /* ירוק */
-            border: 1px solid #198754 !important;
-            color: white !important;
-            font-weight: 900;
-            box-shadow: 0 0 5px rgba(25, 135, 84, 0.5);
-            transform: scale(1.1);
-            z-index: 2;
-        }
-
-        .sub-topic-header {
-            font-size: 0.75rem;
-            color: #6c757d;
-            border-bottom: 1px solid #eee;
-            margin-top: 8px;
-            margin-bottom: 5px;
-        }
-
-        /* הקטנת כרטיסיות */
-        .card-header { padding: 0.75rem 1rem !important; }
-        .card-body { padding: 1rem !important; }
-        h4.card-title { font-size: 1.1rem !important; font-weight: 700; margin-bottom: 1rem !important; }
+        /* ניווט */
+        .nav-square { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border-radius: 4px; text-decoration: none; border: 1px solid #dee2e6; color: #6c757d; }
+        .nav-square:hover { background-color: #e9ecef; color: #495057; }
+        .nav-square-active { background-color: #198754 !important; border-color: #198754 !important; color: white !important; font-weight: bold; transform: scale(1.1); }
+        .nav-square-answered { background-color: #0d6efd; border-color: #0d6efd; color: white !important; }
     </style>
 </head>
 <body>
@@ -79,44 +25,43 @@
 <nav class="navbar navbar-dark bg-dark mb-3 shadow-sm py-1">
     <div class="container-fluid">
         <a class="navbar-brand fs-6" href="{{ url_for('index') }}">🏠 ראשי</a>
-        <span class="navbar-text text-white fs-6">
-            תרגול רפואי
-        </span>
+        <span class="navbar-text text-white fs-6">תרגול רפואי</span>
     </div>
 </nav>
 
 <div class="container-fluid pb-4">
     <div class="row">
-
         <main class="col-12 col-md-8 col-lg-9 order-1 order-md-2 mb-3">
             <div class="card shadow-sm border-0">
-                <div class="card-header bg-white border-bottom-0">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="badge bg-primary rounded-pill">{{ question['topic'] }}</span>
-                        <span class="text-muted" style="font-size: 0.7rem;">ID: {{ question['id'] }}</span>
+                <div class="card-header bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-primary">{{ question['topic'] }}</span>
+                        <small class="text-muted">ID: {{ question['id'] }}</small>
                     </div>
-                    <div class="d-flex justify-content-between align-items-end">
-                        <h6 class="text-primary mb-0 fw-bold">{{ question['sub_topic'] }}</h6>
-                        <span class="text-secondary fw-bold" style="font-size: 0.8rem;">
-                            שאלה {{ current_q_in_category }} / {{ total_q_in_category }}
-                        </span>
+                    <div class="mt-1 d-flex justify-content-between">
+                         <h6 class="text-primary mb-0 fw-bold">{{ question['sub_topic'] }}</h6>
+                         <small class="text-secondary fw-bold">שאלה {{ current_q_in_category }} / {{ total_q_in_category }}</small>
                     </div>
                 </div>
                 
                 <div class="card-body">
-                    <h4 class="card-title lh-base text-dark">
-                        {{ question['question_text'] }}
-                    </h4>
-                    
-                    <hr class="my-3 text-muted opacity-25">
+                    <h5 class="card-title lh-base mb-3">{{ question['question_text'] }}</h5>
 
+                    {% if question['image_path'] %}
+                    <div class="text-center mb-4 bg-light p-3 rounded border">
+                        <img src="{{ url_for('static', filename='images/' + question['image_path']) }}" 
+                             class="img-fluid rounded shadow-sm img-preview" 
+                             style="max-height: 300px;"
+                             data-bs-toggle="modal" data-bs-target="#imageModal">
+                        <div class="text-muted small mt-2"><i class="bi bi-zoom-in"></i> לחץ להגדלה</div>
+                    </div>
+                    {% endif %}
+                    
                     <form id="quiz-form">
                         <input type="hidden" name="question_id" value="{{ question['id'] }}">
-                        <div class="d-grid gap-2"> {% for option in options %}
-                            <button type="button" 
-                                    class="btn btn-outline-dark text-start answer-btn shadow-sm border-1" 
-                                    style="white-space: normal;"
-                                    onclick="submitAnswer(this, '{{ option }}')">
+                        <div class="d-grid gap-2"> 
+                            {% for option in options %}
+                            <button type="button" class="btn btn-outline-dark text-start answer-btn" onclick="submitAnswer(this, '{{ option }}')">
                                 {{ option }}
                             </button>
                             {% endfor %}
@@ -124,7 +69,7 @@
                     </form>
 
                     <div id="result-area" class="mt-3" style="display: none;">
-                        <div id="alert-box" class="alert p-2 mb-2 shadow-sm" role="alert" style="font-size: 0.9rem;"></div>
+                        <div id="alert-box" class="alert p-2 mb-2 shadow-sm"></div>
                         <div class="card bg-light border-0 shadow-sm">
                             <div class="card-body py-2">
                                 <h6 class="fw-bold text-decoration-underline text-primary small">הסבר:</h6>
@@ -134,159 +79,106 @@
                     </div>
                 </div>
 
-                <div class="card-footer bg-light p-2 d-flex justify-content-between align-items-center">
-                    {% if prev_id %}
-                        <a href="{{ url_for('get_question', question_id=prev_id) }}" class="btn btn-sm btn-outline-secondary px-3">➜ קודם</a>
-                    {% else %}
-                        <button class="btn btn-sm btn-outline-secondary px-3 disabled">➜ קודם</button>
-                    {% endif %}
-
-                    {% if next_id %}
-                        <a href="{{ url_for('get_question', question_id=next_id) }}" class="btn btn-sm btn-primary px-3 fw-bold">הבא ⬅</a>
-                    {% else %}
-                        <a href="{{ url_for('index') }}" class="btn btn-sm btn-success px-3 fw-bold">סיום 🏁</a>
-                    {% endif %}
+                <div class="card-footer bg-light d-flex justify-content-between">
+                    <a href="{{ url_for('get_question', question_id=prev_id) if prev_id else '#' }}" class="btn btn-sm btn-outline-secondary px-3 {% if not prev_id %}disabled{% endif %}">➜ קודם</a>
+                    <a href="{{ url_for('get_question', question_id=next_id) if next_id else url_for('index') }}" class="btn btn-sm btn-primary px-3 fw-bold">{% if next_id %}הבא ⬅{% else %}סיום 🏁{% endif %}</a>
                 </div>
             </div>
         </main>
 
         <aside class="col-12 col-md-4 col-lg-3 order-2 order-md-1">
-            
-            <button class="btn btn-primary w-100 mb-2 d-md-none shadow-sm fw-bold btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
-                ☰ מפת שאלות
-            </button>
-
-            <div class="collapse d-md-block" id="sidebarMenu">
-                <div class="card shadow-sm border-0" style="max-height: 85vh; overflow-y: auto;">
-                    <div class="card-header bg-dark text-white sticky-top shadow-sm py-2" style="font-size: 0.9rem;">
-                        <i class="bi bi-grid-3x3-gap-fill"></i> מפת שאלות
-                    </div>
-                    
-                    <div class="card-body bg-light p-2">
-                        {% for topic, topic_data in navigation_data.items() %}
-                            
-                            <div class="mb-2">
-                                <h6 class="fw-bold text-dark border-bottom border-2 border-primary pb-1 mb-1" style="font-size: 0.85rem;">
-                                    {{ topic }}
-                                </h6>
-
-                                {% for sub, questions in topic_data.sub_topics.items() %}
-                                    <div class="mb-2">
-                                        <div class="sub-topic-header">
-                                            {{ sub }}
-                                        </div>
-                                        
-                                        <div class="d-flex flex-wrap gap-1">
-                                            {% for q_data in questions %}
-                                                <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
-                                                   id="nav-sq-{{ q_data.id }}"
-                                                   class="nav-square 
-                                                   {% if q_data.id == question.id %} 
-                                                        nav-square-active 
-                                                   {% else %} 
-                                                        nav-square-default 
-                                                   {% endif %}"
-                                                   title="{{ q_data.text }}">
-                                                    {{ q_data.number }}
-                                                </a>
-                                            {% endfor %}
-                                        </div>
+             <div class="card shadow-sm border-0" style="max-height: 80vh; overflow-y: auto;">
+                <div class="card-header bg-dark text-white py-2 small">מפת שאלות</div>
+                <div class="card-body bg-light p-2">
+                    {% for topic, topic_data in navigation_data.items() %}
+                        <div class="mb-2">
+                            <strong class="text-dark small border-bottom border-primary d-block mb-1">{{ topic }}</strong>
+                            {% for sub, questions in topic_data.sub_topics.items() %}
+                                <div class="mb-2">
+                                    <div class="text-muted" style="font-size: 0.7rem;">{{ sub }}</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for q_data in questions %}
+                                            <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
+                                               id="nav-sq-{{ q_data.id }}"
+                                               class="nav-square {% if q_data.id == question.id %}nav-square-active{% else %}nav-square-default{% endif %}"
+                                               title="{{ q_data.text }}">
+                                                {{ q_data.number }}
+                                            </a>
+                                        {% endfor %}
                                     </div>
-                                {% endfor %}
-                            </div>
-
-                        {% endfor %}
-                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
                 </div>
             </div>
         </aside>
-
     </div>
 </div>
 
+{% if question['image_path'] %}
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content bg-transparent border-0">
+      <div class="modal-body text-center position-relative">
+        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+        <img src="{{ url_for('static', filename='images/' + question['image_path']) }}" class="img-fluid rounded shadow">
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // הפעלת Tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-
-    // === פונקציה לצביעת ריבועים כחולים (שנענו) ===
     function markAnsweredQuestions() {
-        // שליפת רשימת השאלות שנענו מהזיכרון המקומי
         const answeredIds = JSON.parse(localStorage.getItem('answered_questions') || '[]');
-        
         answeredIds.forEach(id => {
             const square = document.getElementById(`nav-sq-${id}`);
-            // צובעים בכחול רק אם הריבוע קיים ואינו הריבוע הפעיל (הירוק)
             if (square && !square.classList.contains('nav-square-active')) {
-                square.classList.remove('nav-square-default');
                 square.classList.add('nav-square-answered');
             }
         });
     }
-
-    // הפעלה בעת טעינת הדף
     document.addEventListener('DOMContentLoaded', markAnsweredQuestions);
 
-    function submitAnswer(btnElement, selectedOption) {
+    function submitAnswer(btn, selectedOption) {
         const form = document.getElementById('quiz-form');
-        const questionId = form.querySelector('input[name="question_id"]').value;
-        const allButtons = form.querySelectorAll('button');
+        const qId = form.querySelector('input[name="question_id"]').value;
+        const btns = form.querySelectorAll('button');
+        
+        btns.forEach(b => b.classList.add('disabled')); 
 
-        allButtons.forEach(btn => btn.classList.add('disabled'));
+        const fd = new FormData();
+        fd.append('question_id', qId);
+        fd.append('selected_answer', selectedOption);
 
-        const formData = new FormData();
-        formData.append('question_id', questionId);
-        formData.append('selected_answer', selectedOption);
-
-        fetch('/check_answer', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
+        fetch('/check_answer', { method: 'POST', body: fd })
+        .then(r => r.json())
         .then(data => {
-            const resultArea = document.getElementById('result-area');
-            const alertBox = document.getElementById('alert-box');
-            const explanationText = document.getElementById('explanation-text');
-
-            resultArea.style.display = 'block';
-            explanationText.innerHTML = data.explanation; 
-
-            // שמירה ב-localStorage ששאלה זו נענתה
-            let answered = JSON.parse(localStorage.getItem('answered_questions') || '[]');
-            if (!answered.includes(parseInt(questionId))) {
-                answered.push(parseInt(questionId));
-                localStorage.setItem('answered_questions', JSON.stringify(answered));
-            }
-
-            if (data.is_correct) {
-                btnElement.classList.remove('btn-outline-dark');
-                btnElement.classList.add('btn-success');
-                alertBox.className = 'alert alert-success fw-bold';
-                alertBox.innerHTML = '✅ תשובה נכונה!';
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('explanation-text').innerHTML = data.explanation;
+            
+            if(data.is_correct) {
+                btn.classList.replace('btn-outline-dark', 'btn-success');
+                document.getElementById('alert-box').className = 'alert alert-success fw-bold py-1';
+                document.getElementById('alert-box').innerHTML = '✅ נכון!';
             } else {
-                btnElement.classList.remove('btn-outline-dark');
-                btnElement.classList.add('btn-danger');
-                alertBox.className = 'alert alert-danger fw-bold';
-                alertBox.innerHTML = '❌ טעות.';
-
-                allButtons.forEach(btn => {
-                    if (btn.innerText.includes(data.correct_answer) || data.correct_answer.includes(btn.innerText)) {
-                         btn.classList.remove('btn-outline-dark');
-                         btn.classList.add('btn-success');
-                    }
+                btn.classList.replace('btn-outline-dark', 'btn-danger');
+                document.getElementById('alert-box').className = 'alert alert-danger fw-bold py-1';
+                document.getElementById('alert-box').innerHTML = '❌ טעות.';
+                btns.forEach(b => {
+                    if(b.innerText.includes(data.correct_answer)) b.classList.replace('btn-outline-dark', 'btn-success');
                 });
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('אירעה שגיאה בתקשורת עם השרת');
-            allButtons.forEach(btn => btn.classList.remove('disabled'));
+            
+            let ans = JSON.parse(localStorage.getItem('answered_questions') || '[]');
+            if(!ans.includes(parseInt(qId))) {
+                ans.push(parseInt(qId));
+                localStorage.setItem('answered_questions', JSON.stringify(ans));
+            }
         });
     }
 </script>
-
 </body>
 </html>

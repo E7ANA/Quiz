@@ -3,14 +3,12 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import sqlite3
 import random
-import json
 import os
 import re
 import html
+import data_manager  # ייבוא המודול שמנהל את הנתונים
 
-# הגדרות בסיסיות
 app = Flask(__name__)
-# מפתח סודי לניהול הסשן (חובה למצב מבחן)
 app.secret_key = 'super_secret_key_for_quiz_app_123' 
 
 DB_FILE = 'quiz_db.sqlite'
@@ -25,8 +23,8 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# פונקציית הניווט (תרגול) - בונה עץ עם מספור רציף לטופיק
 def get_navigation_data():
+    """בונה את עץ הניווט לסרגל הצד"""
     conn = get_db_connection()
     questions = conn.execute(
         'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, sub_topic, id'
@@ -56,63 +54,40 @@ def get_navigation_data():
         })
     return navigation_tree
 
-# פונקציית הניקוי - משמשת רק להשוואה! לא לתצוגה!
 def clean_text_for_comparison(text):
     if not text:
         return ""
     text = html.unescape(text)
     text = text.lower()
-    # מוחק רווחים וסימנים רק לצורך בדיקת נכונות
     cleaned_text = re.sub(r'[^a-z0-9א-ת]', '', text)
     return cleaned_text
 
 # ----------------------------------------------------------------------
-# 💾 טעינת נתונים (Init)
+# 🔄 אתחול נתונים (מצב פיתוח - טעינה מחדש בכל ריצה)
 # ----------------------------------------------------------------------
 
-def init_dynamic_data():
-    if not os.path.exists(QUESTIONS_FILE):
-        print(f"❌ שגיאה: הקובץ {QUESTIONS_FILE} לא נמצא.")
-        return
+def setup_database():
+    """
+    מצב פיתוח:
+    מוחק את ה-DB הקיים וטוען מחדש את ה-JSON בכל הפעלה.
+    זה מבטיח שכל שינוי ב-JSON יופיע מיד באתר.
+    """
+    print("🔄 מצב עדכון: מרענן את הנתונים מקובץ ה-JSON...")
+    
+    # 1. מחיקת הקובץ הישן אם הוא קיים
+    if os.path.exists(DB_FILE):
+        try:
+            os.remove(DB_FILE)
+            print("🗑️ מסד הנתונים הישן נמחק.")
+        except OSError:
+            print("⚠️ לא ניתן למחוק את הקובץ (אולי הוא פתוח?). מנסה להמשיך...")
 
-    try:
-        with open(QUESTIONS_FILE, 'r', encoding='utf-8') as f:
-            questions_list = json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"❌ שגיאה ב-JSON: {e}")
-        return
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM Questions')
-        cursor.execute("DELETE FROM sqlite_sequence WHERE name='Questions'")
-
-        sql_insert = """
-            INSERT INTO Questions (
-                question_text, correct_answer, distractor_1, distractor_2, distractor_3, explanation, topic, sub_topic
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """
-        
-        count = 0
-        for q in questions_list:
-            try:
-                # שומרים את הטקסט המקורי (עם רווחים) ב-DB לתצוגה יפה.
-                # הניקוי יתבצע רק בזמן בדיקת התשובה.
-                cursor.execute(sql_insert, (
-                    q['question_text'], 
-                    q['correct_answer'], 
-                    q.get('distractor_1'), q.get('distractor_2'), q.get('distractor_3'), 
-                    q.get('explanation'), q.get('topic', 'כללי'), q.get('sub_topic', 'ללא פרק')
-                ))
-                count += 1
-            except KeyError: pass
-                
-        conn.commit()
-        conn.close()
-        print(f"✅ נטענו {count} שאלות (הטקסט נשמר בצורתו המקורית).")
-    except sqlite3.Error as e:
-        print(f"❌ שגיאה ב-DB: {e}")
+    # 2. יצירת טבלאות מחדש
+    data_manager.create_tables()
+    
+    # 3. טעינת הנתונים מהקובץ
+    data_manager.load_questions_from_file(QUESTIONS_FILE)
+    print("✅ הנתונים נטענו מחדש בהצלחה!")
 
 # ----------------------------------------------------------------------
 # 🧭 מצב תרגול (Practice Mode)
@@ -121,8 +96,13 @@ def init_dynamic_data():
 @app.route('/')
 def index():
     conn = get_db_connection()
-    topics = conn.execute('SELECT DISTINCT topic FROM Questions').fetchall()
-    count = conn.execute('SELECT COUNT(*) as cnt FROM Questions').fetchone()['cnt']
+    try:
+        topics = conn.execute('SELECT DISTINCT topic FROM Questions').fetchall()
+        count_query = conn.execute('SELECT COUNT(*) as cnt FROM Questions').fetchone()
+        count = count_query['cnt'] if count_query else 0
+    except sqlite3.OperationalError:
+        topics = []
+        count = 0
     conn.close()
     return render_template('index.html', topics=topics, total_questions=count)
 
@@ -200,13 +180,12 @@ def check_answer():
 
     if q is None: return jsonify({"error": "לא נמצא"}), 404
     
-    # ניקוי לצורך השוואה
     user_clean = clean_text_for_comparison(user_input)
     db_clean = clean_text_for_comparison(q['correct_answer'])
     
     return jsonify({
         "is_correct": (user_clean == db_clean),
-        "correct_answer": q['correct_answer'], # שולחים את הטקסט המקורי (עם רווחים)
+        "correct_answer": q['correct_answer'],
         "explanation": q['explanation']
     })
 
@@ -217,7 +196,10 @@ def check_answer():
 @app.route('/exam_setup')
 def exam_setup():
     conn = get_db_connection()
-    data = conn.execute('SELECT DISTINCT topic, sub_topic FROM Questions').fetchall()
+    try:
+        data = conn.execute('SELECT DISTINCT topic, sub_topic FROM Questions').fetchall()
+    except sqlite3.OperationalError:
+        data = []
     conn.close()
     
     topics = {}
@@ -233,14 +215,13 @@ def start_exam():
     sub_topic = request.form.get('sub_topic')
     conn = get_db_connection()
     
-    # 💥 שינוי: שליפה לפי סדר ID רציף (בלי ערבוב)
     questions = conn.execute(
         'SELECT id FROM Questions WHERE sub_topic = ? ORDER BY id', 
         (sub_topic,)
     ).fetchall()
     conn.close()
     
-    if not questions: return "לא נמצאו שאלות", 404
+    if not questions: return "לא נמצאו שאלות בנושא זה", 404
         
     question_ids = [q['id'] for q in questions]
     
@@ -256,7 +237,7 @@ def exam_question(index):
     if not exam_ids or index >= len(exam_ids):
         return redirect(url_for('exam_setup'))
     
-    # POST: שמירת תשובה וניווט
+    # POST
     if request.method == 'POST':
         selected = request.form.get('selected_answer')
         if selected:
@@ -267,16 +248,18 @@ def exam_question(index):
             session.modified = True 
             
         action = request.form.get('action')
-        # ניווט רגיל
-        if action == 'next': return redirect(url_for('exam_question', index=index + 1))
-        elif action == 'prev': return redirect(url_for('exam_question', index=index - 1))
-        elif action == 'finish': return redirect(url_for('submit_exam'))
-        # ניווט בקפיצה (מהסרגל צד)
+        
+        if action == 'next': 
+            return redirect(url_for('exam_question', index=index + 1))
+        elif action == 'prev': 
+            return redirect(url_for('exam_question', index=index - 1))
+        elif action == 'finish': 
+            return redirect(url_for('submit_exam'))
         elif action and action.startswith('jump_'):
             new_index = int(action.split('_')[1])
             return redirect(url_for('exam_question', index=new_index))
 
-    # GET: הצגת שאלה
+    # GET
     question_id = exam_ids[index]
     conn = get_db_connection()
     question = conn.execute('SELECT * FROM Questions WHERE id = ?', (question_id,)).fetchone()
@@ -288,15 +271,15 @@ def exam_question(index):
     
     user_selection = session.get('exam_answers', {}).get(str(question_id))
 
-    # 💥 הכנת נתונים לסרגל הצד (Sidebar) במצב מבחן
+    # בניית הנתונים לסרגל
     user_answers = session.get('exam_answers', {})
     exam_nav = []
     for i, q_id in enumerate(exam_ids):
         status = 'default'
         if str(q_id) in user_answers:
-            status = 'answered' # כחול
+            status = 'answered'
         if i == index:
-            status = 'active' # ירוק (גובר על כחול)
+            status = 'active'
             
         exam_nav.append({
             'index': i,
@@ -310,7 +293,7 @@ def exam_question(index):
                            index=index, 
                            total=len(exam_ids),
                            user_selection=user_selection,
-                           exam_nav=exam_nav, # שולחים את נתוני הסרגל
+                           exam_nav=exam_nav, 
                            sub_topic=session.get('exam_sub_topic'))
 
 @app.route('/submit_exam')
@@ -330,7 +313,6 @@ def submit_exam():
         user_ans = user_answers.get(str(q_id), "")
         original_correct = q['correct_answer']
         
-        # השוואה חכמה (מתעלמת מרווחים)
         user_clean = clean_text_for_comparison(user_ans)
         db_clean = clean_text_for_comparison(original_correct)
         
@@ -351,9 +333,13 @@ def submit_exam():
     
     return render_template('exam_result.html', score=final_score, results=results, total=len(exam_ids), correct_count=score)
 
-# הפעלה
+# =======================================================
+# 🚀 הפעלה אוטומטית של טעינת הנתונים (גם ב-Flask Run)
+# =======================================================
+
+# השורה הזו מבטיחה שהפונקציה תרוץ מיד כש-app.py נטען
 with app.app_context():
-    init_dynamic_data()
+    setup_database()
 
 if __name__ == '__main__':
     app.run(debug=True)
