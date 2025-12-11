@@ -9,21 +9,12 @@
     <style>
         body { background-color: #f8f9fa; }
         
-        /* === ריבועי ניווט קטנים === */
         .nav-square {
-            width: 26px;
-            height: 26px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.75rem;
-            border-radius: 4px;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-            padding: 0;
-            line-height: 1;
+            width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.75rem;
+            border-radius: 4px; cursor: pointer; border: none;
+            transition: all 0.2s; padding: 0; line-height: 1;
         }
         
         .nav-square-default { background-color: #fff; border: 1px solid #dee2e6; color: #6c757d; }
@@ -39,7 +30,6 @@
         }
         .img-preview { cursor: zoom-in; transition: opacity 0.2s; }
         .img-preview:hover { opacity: 0.9; }
-
         .fade-out { opacity: 0.5; pointer-events: none; transition: opacity 0.3s; }
     </style>
 </head>
@@ -76,7 +66,7 @@
 
                         {% if question['image_path'] %}
                         <div class="mb-4 text-center bg-light p-3 rounded border">
-                            <img src="{{ url_for('static', filename='images/' + question['image_path']) }}" 
+                            <img src="{{ url_for('serve_image', filename=question['image_path']) }}" 
                                  class="img-fluid rounded shadow-sm img-preview" 
                                  style="max-height: 300px;"
                                  data-bs-toggle="modal" 
@@ -100,7 +90,6 @@
 
                         <div class="d-flex justify-content-between border-top pt-3">
                             <button type="submit" name="action" value="prev" class="btn btn-outline-secondary px-4" {% if index == 0 %}disabled{% endif %}>➜ הקודם</button>
-                            
                             {% if index < total - 1 %}
                                 <button type="submit" name="action" value="next" id="btn-next" class="btn btn-primary px-5 fw-bold shadow-sm">הבא ⬅</button>
                             {% else %}
@@ -117,7 +106,7 @@
                 </button>
 
                 <div class="collapse d-md-block" id="examSidebar">
-                    <div class="card shadow-sm border-0" style="max-height: 85vh; overflow-y: auto;">
+                    <div id="sidebar-content" class="card shadow-sm border-0" style="max-height: 85vh; overflow-y: auto;">
                         <div class="card-header bg-secondary text-white sticky-top shadow-sm py-2">
                             <i class="bi bi-grid-3x3-gap-fill"></i> ניווט
                         </div>
@@ -148,7 +137,7 @@
     <div class="modal-content bg-transparent border-0">
       <div class="modal-body text-center position-relative">
         <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
-        <img src="{{ url_for('static', filename='images/' + question['image_path']) }}" class="img-fluid rounded shadow">
+        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" class="img-fluid rounded shadow">
       </div>
     </div>
   </div>
@@ -157,9 +146,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // --- שמירת מיקום הגלילה ---
+    document.addEventListener("DOMContentLoaded", function() {
+        const sidebar = document.getElementById("sidebar-content");
+        if (sidebar) {
+            const scrollPos = localStorage.getItem("examSidebarScrollPos");
+            if (scrollPos) {
+                sidebar.scrollTop = scrollPos;
+            }
+            window.addEventListener("beforeunload", function() {
+                localStorage.setItem("examSidebarScrollPos", sidebar.scrollTop);
+            });
+        }
+    });
+
     document.querySelectorAll('input[name="selected_answer"]').forEach((input) => {
         input.addEventListener('change', function() {
-            // עיצוב כפתור שנבחר
             document.querySelectorAll('label.btn').forEach(lbl => {
                 lbl.classList.remove('btn-dark', 'text-white');
                 lbl.classList.add('btn-outline-dark');
@@ -176,7 +178,6 @@
                 span.innerHTML = '✔';
                 label.appendChild(span);
 
-                // מעבר אוטומטי
                 const nextBtn = document.getElementById('btn-next');
                 if (nextBtn) {
                     document.body.classList.add('fade-out');

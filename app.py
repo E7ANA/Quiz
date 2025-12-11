@@ -1,18 +1,60 @@
 # app.py
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
 import sqlite3
 import random
 import os
 import re
 import html
-import data_manager  # ייבוא המודול שמנהל את הנתונים
+import glob
+import data_manager
+from urllib.parse import unquote  # קריטי לטיפול ברווחים בשמות קבצים
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_quiz_app_123' 
 
 DB_FILE = 'quiz_db.sqlite'
-QUESTIONS_FILE = 'questions.json'
+QUESTIONS_PATTERN = 'questions*.json' 
+
+# ----------------------------------------------------------------------
+# 🖼️ נתיב מיוחד להגשת תמונות (פתרון לרווחים ולמיקום)
+# ----------------------------------------------------------------------
+@app.route('/custom_img/<path:filename>')
+def serve_image(filename):
+    # 1. ניקוי השם (הופך %20 לרווח רגיל)
+    decoded_filename = unquote(filename)
+    
+    # 2. חישוב נתיב אבסולוטי לפי מיקום הקובץ app.py
+    # זה מבטיח שהמערכת מחפשת בתיקייה הנכונה בדיוק, לא משנה מאיפה הרצת
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    images_dir = os.path.join(current_dir, 'static', 'images')
+    full_path = os.path.join(images_dir, decoded_filename)
+    
+    # 3. הדפסות דיבוג לטרמינל (כדי שתוכל לראות אם יש בעיה)
+    print(f"\n📸 --- בקשת תמונה ---")
+    print(f"📂 נתיב התיקייה: {images_dir}")
+    print(f"🔎 מחפש קובץ: '{decoded_filename}'")
+    
+    if os.path.exists(full_path):
+        print("✅ הקובץ נמצא! מגיש אותו...")
+        return send_from_directory(images_dir, decoded_filename)
+    else:
+        print(f"❌ הקובץ לא נמצא בנתיב: {full_path}")
+        # בדיקה מה כן קיים בתיקייה (עוזר מאוד לפתרון בעיות)
+        if os.path.exists(images_dir):
+            print("👀 קבצים שכן קיימים בתיקייה הזו:")
+            try:
+                files = os.listdir(images_dir)
+                # מדפיס רק את ה-5 הראשונים כדי לא להעמיס
+                for f in files[:5]: 
+                    print(f"   - '{f}'")
+                if len(files) > 5: print("   ... (ועוד קבצים)")
+            except Exception as e:
+                print(f"   שגיאה בקריאת התיקייה: {e}")
+        else:
+            print("❌ שגיאה חמורה: התיקייה static/images בכלל לא קיימת!")
+            
+        return "Image not found", 404
 
 # ----------------------------------------------------------------------
 # 🔧 פונקציות עזר
@@ -24,15 +66,18 @@ def get_db_connection():
     return conn
 
 def get_navigation_data():
-    """בונה את עץ הניווט לסרגל הצד"""
+    """בונה את עץ הניווט לסרגל הצד - עם מספור נפרד לכל פרק"""
     conn = get_db_connection()
-    questions = conn.execute(
-        'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, sub_topic, id'
-    ).fetchall()
+    try:
+        questions = conn.execute(
+            'SELECT id, question_text, topic, sub_topic FROM Questions ORDER BY topic, sub_topic, id'
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
     conn.close()
     
     navigation_tree = {}
-    topic_counters = {} 
+    sub_topic_counters = {} 
     
     for q in questions:
         topic = q['topic']
@@ -40,16 +85,16 @@ def get_navigation_data():
         
         if topic not in navigation_tree:
             navigation_tree[topic] = {'sub_topics': {}}
-            topic_counters[topic] = 0 
-        
-        topic_counters[topic] += 1
         
         if sub_topic not in navigation_tree[topic]['sub_topics']:
             navigation_tree[topic]['sub_topics'][sub_topic] = []
+            sub_topic_counters[(topic, sub_topic)] = 0
             
+        sub_topic_counters[(topic, sub_topic)] += 1
+        
         navigation_tree[topic]['sub_topics'][sub_topic].append({
             'id': q['id'],
-            'number': topic_counters[topic],
+            'number': sub_topic_counters[(topic, sub_topic)],
             'text': q['question_text']
         })
     return navigation_tree
@@ -63,31 +108,37 @@ def clean_text_for_comparison(text):
     return cleaned_text
 
 # ----------------------------------------------------------------------
-# 🔄 אתחול נתונים (מצב פיתוח - טעינה מחדש בכל ריצה)
+# 🔄 אתחול נתונים (תומך בריבוי קבצים ומחיקה בכל ריצה)
 # ----------------------------------------------------------------------
 
 def setup_database():
-    """
-    מצב פיתוח:
-    מוחק את ה-DB הקיים וטוען מחדש את ה-JSON בכל הפעלה.
-    זה מבטיח שכל שינוי ב-JSON יופיע מיד באתר.
-    """
-    print("🔄 מצב עדכון: מרענן את הנתונים מקובץ ה-JSON...")
+    print("\n🔄 --- אתחול מערכת: טעינת שאלות ---")
     
-    # 1. מחיקת הקובץ הישן אם הוא קיים
+    # 1. מחיקת דאטה-בייס ישן
     if os.path.exists(DB_FILE):
         try:
             os.remove(DB_FILE)
-            print("🗑️ מסד הנתונים הישן נמחק.")
+            print("🗑️  מסד הנתונים הישן נמחק.")
         except OSError:
-            print("⚠️ לא ניתן למחוק את הקובץ (אולי הוא פתוח?). מנסה להמשיך...")
+            print("⚠️  לא ניתן למחוק את הקובץ (אולי פתוח?).")
 
-    # 2. יצירת טבלאות מחדש
+    # 2. יצירה מחדש
     data_manager.create_tables()
     
-    # 3. טעינת הנתונים מהקובץ
-    data_manager.load_questions_from_file(QUESTIONS_FILE)
-    print("✅ הנתונים נטענו מחדש בהצלחה!")
+    # 3. טעינת כל הקבצים שמתאימים לתבנית
+    files = glob.glob(QUESTIONS_PATTERN)
+    
+    if not files:
+        print(f"⚠️  לא נמצאו קבצי שאלות (חיפשתי: {QUESTIONS_PATTERN})")
+        # ניסיון הדפסת מיקום נוכחי לעזרה
+        print(f"📍 תיקיית העבודה הנוכחית: {os.getcwd()}")
+    else:
+        print(f"📂 נמצאו {len(files)} קבצי שאלות. מתחיל טעינה...")
+        for file_path in files:
+            print(f"   📥 טוען קובץ: {file_path}")
+            data_manager.load_questions_from_file(file_path)
+            
+        print(f"✅ סיום טעינה כולל.")
 
 # ----------------------------------------------------------------------
 # 🧭 מצב תרגול (Practice Mode)
@@ -135,10 +186,12 @@ def get_question(question_id):
         conn.close()
         return "השאלה לא נמצאה.", 404
     
-    current_topic = question['topic']
+    # חישוב המיקום היחסי בתוך ה-Sub-Topic בלבד
+    current_sub_topic = question['sub_topic']
+    
     topic_questions = conn.execute(
-        'SELECT id FROM Questions WHERE topic = ? ORDER BY sub_topic, id',
-        (current_topic,)
+        'SELECT id FROM Questions WHERE sub_topic = ? ORDER BY id',
+        (current_sub_topic,)
     ).fetchall()
     
     topic_ids = [q['id'] for q in topic_questions]
@@ -237,7 +290,6 @@ def exam_question(index):
     if not exam_ids or index >= len(exam_ids):
         return redirect(url_for('exam_setup'))
     
-    # POST
     if request.method == 'POST':
         selected = request.form.get('selected_answer')
         if selected:
@@ -249,17 +301,13 @@ def exam_question(index):
             
         action = request.form.get('action')
         
-        if action == 'next': 
-            return redirect(url_for('exam_question', index=index + 1))
-        elif action == 'prev': 
-            return redirect(url_for('exam_question', index=index - 1))
-        elif action == 'finish': 
-            return redirect(url_for('submit_exam'))
+        if action == 'next': return redirect(url_for('exam_question', index=index + 1))
+        elif action == 'prev': return redirect(url_for('exam_question', index=index - 1))
+        elif action == 'finish': return redirect(url_for('submit_exam'))
         elif action and action.startswith('jump_'):
             new_index = int(action.split('_')[1])
             return redirect(url_for('exam_question', index=new_index))
 
-    # GET
     question_id = exam_ids[index]
     conn = get_db_connection()
     question = conn.execute('SELECT * FROM Questions WHERE id = ?', (question_id,)).fetchone()
@@ -271,7 +319,6 @@ def exam_question(index):
     
     user_selection = session.get('exam_answers', {}).get(str(question_id))
 
-    # בניית הנתונים לסרגל
     user_answers = session.get('exam_answers', {})
     exam_nav = []
     for i, q_id in enumerate(exam_ids):
@@ -334,10 +381,8 @@ def submit_exam():
     return render_template('exam_result.html', score=final_score, results=results, total=len(exam_ids), correct_count=score)
 
 # =======================================================
-# 🚀 הפעלה אוטומטית של טעינת הנתונים (גם ב-Flask Run)
+# 🚀 הפעלה אוטומטית (תומך ב-flask run וגם ב-python app.py)
 # =======================================================
-
-# השורה הזו מבטיחה שהפונקציה תרוץ מיד כש-app.py נטען
 with app.app_context():
     setup_database()
 
