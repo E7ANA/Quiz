@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>הגדרת מבחן</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <div class="card shadow mx-auto" style="max-width: 500px;">
+            <div class="card-header bg-primary text-white text-center">
+                <h3>🎓 מבחן ידע</h3>
+            </div>
+            <div class="card-body">
+                <p>בחר נושא לבחינה. במצב זה לא תקבל משוב מיידי, אלא ציון סופי בסוף המבחן.</p>
+                
+                <form action="{{ url_for('start_exam') }}" method="POST">
+                    <div class="mb-4">
+                        <label for="sub_topic" class="form-label fw-bold">בחר תת-נושא:</label>
+                        <select name="sub_topic" id="sub_topic" class="form-select" required>
+                            <option value="" disabled selected>-- בחר מהרשימה --</option>
+                            {% for topic, sub_topics in topics.items() %}
+                                <optgroup label="{{ topic }}">
+                                    {% for sub in sub_topics %}
+                                        <option value="{{ sub }}">{{ sub }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">התחל מבחן 🏁</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <a href="{{ url_for('index') }}" class="btn btn-link">חזרה לתרגול רגיל</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

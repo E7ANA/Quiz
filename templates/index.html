@@ -2,33 +2,88 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>מערכת למידה - תפריט ראשי</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת תרגול רפואי - דף הבית</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { font-family: sans-serif; background: #f4f4f9; padding: 40px; text-align: center; }
-        .card { background: white; padding: 30px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        select, input, button { width: 100%; padding: 10px; margin: 10px 0; font-size: 1.1em; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        body { background-color: #f8f9fa; }
+        .mode-card { transition: transform 0.2s; cursor: pointer; height: 100%; }
+        .mode-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .icon-box { font-size: 3rem; margin-bottom: 1rem; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>🎓 ברוך הבא!</h1>
-        <p>יש במערכת סך הכל <strong>{{ total_questions }}</strong> שאלות.</p>
-        
-        <form action="/quiz" method="get">
-            <label>בחר נושא:</label>
-            <select name="topic">
-                {% for row in topics %}
-                    <option value="{{ row['topic'] }}">{{ row['topic'] }}</option>
-                {% endfor %}
-            </select>
 
-            <label>או קפוץ למספר שאלה:</label>
-            <input type="number" name="start_id" placeholder="למשל: 5">
-
-            <button type="submit">התחל מבחן</button>
-        </form>
+<nav class="navbar navbar-dark bg-dark mb-5 shadow-sm">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1">🏥 מערכת תרגול רפואי</span>
+        <span class="navbar-text text-white">
+            סה"כ שאלות במאגר: <span class="badge bg-warning text-dark">{{ total_questions }}</span>
+        </span>
     </div>
+</nav>
+
+<div class="container">
+    <div class="row g-4 justify-content-center">
+        
+        <div class="col-md-5">
+            <div class="card h-100 shadow-sm mode-card border-primary border-2">
+                <div class="card-body text-center p-5">
+                    <div class="icon-box text-primary">
+                        <i class="bi bi-book-half"></i>
+                    </div>
+                    <h2 class="card-title fw-bold mb-3">תרגול חופשי</h2>
+                    <p class="card-text text-muted mb-4">
+                        תרגול שאלות עם משוב מיידי.
+                        <br>ניתן לראות את התשובה הנכונה והסבר לאחר כל שאלה.
+                    </p>
+                    
+                    <hr>
+                    
+                    <h6 class="text-start fw-bold mb-2">בחר נושא להתחלה:</h6>
+                    <div class="d-grid gap-2">
+                        {% for topic in topics %}
+                            <a href="{{ url_for('start_quiz', topic=topic['topic']) }}" class="btn btn-outline-primary text-start">
+                                🔹 {{ topic['topic'] }}
+                            </a>
+                        {% endfor %}
+                        <a href="{{ url_for('start_quiz') }}" class="btn btn-primary mt-2">
+                            התחל תרגול כללי (מההתחלה) ⬅
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card h-100 shadow-sm mode-card border-success border-2">
+                <div class="card-body text-center p-5 d-flex flex-column justify-content-center">
+                    <div class="icon-box text-success">
+                        <i class="bi bi-stopwatch-fill"></i>
+                    </div>
+                    <h2 class="card-title fw-bold mb-3">מבחן ידע</h2>
+                    <p class="card-text text-muted mb-4">
+                        הדמיית מבחן אמיתי.
+                        <br>בחרו נושא, ענו על שאלות ללא משוב מיידי, וקבלו ציון וניתוח מלא בסוף.
+                    </p>
+                    
+                    <div class="mt-auto">
+                        <a href="{{ url_for('exam_setup') }}" class="btn btn-success btn-lg w-100 shadow">
+                            מעבר לאזור הבחינות 🏁
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<footer class="text-center text-muted mt-5 py-4">
+    <small>© מערכת תרגול רפואי | נבנה באמצעות Flask & Python</small>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
