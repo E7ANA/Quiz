@@ -1,5 +1,3 @@
-# data_manager.py
-
 import sqlite3
 import json
 import os
@@ -12,8 +10,8 @@ def get_db_connection():
     return conn
 
 def create_tables():
-    """יוצר את הטבלה מחדש עם תמיכה בתמונות"""
     conn = get_db_connection()
+    # הוספנו את העמודה source_file
     conn.execute("""
         CREATE TABLE IF NOT EXISTS Questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,15 +23,14 @@ def create_tables():
             explanation TEXT,
             topic TEXT,
             sub_topic TEXT,
-            image_path TEXT
+            image_path TEXT,
+            source_file TEXT
         );
     """)
     conn.commit()
     conn.close()
-    print("✅ טבלאות נבדקו/נוצרו בהצלחה.")
 
-def insert_question(question_data: dict):
-    """מכניס שאלה בודדת למסד הנתונים"""
+def insert_question(question_data: dict, filename: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -41,18 +38,20 @@ def insert_question(question_data: dict):
         q_text = question_data.get('question_text')
         c_answer = question_data.get('correct_answer')
         
-        # בדיקה בסיסית שקיימים שדות חובה
+        # תמיכה ברשימת תשובות (המרה ל-JSON string אם זה list)
+        if isinstance(c_answer, list):
+            c_answer = json.dumps(c_answer, ensure_ascii=False)
+
         if not q_text or not c_answer:
             return False
 
-        # שליפת שם התמונה (אם קיים ב-JSON, אחרת None)
         img_path = question_data.get('image') 
 
         sql_insert = """
             INSERT INTO Questions (
                 question_text, correct_answer, distractor_1, distractor_2, 
-                distractor_3, explanation, topic, sub_topic, image_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                distractor_3, explanation, topic, sub_topic, image_path, source_file
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         
         cursor.execute(sql_insert, (
@@ -63,7 +62,8 @@ def insert_question(question_data: dict):
             question_data.get('explanation'), 
             question_data.get('topic', 'כללי'), 
             question_data.get('sub_topic', 'ללא פרק'),
-            img_path 
+            img_path,
+            filename
         ))
 
         conn.commit()
@@ -74,30 +74,80 @@ def insert_question(question_data: dict):
         print(f"❌ שגיאה ב-SQLite: {e}")
         return False
 
-# זו הפונקציה שהייתה חסרה לך:
 def load_questions_from_file(file_path: str):
-    """טוען שאלות מקובץ JSON"""
     if not os.path.exists(file_path):
-        print(f"❌ הקובץ {file_path} לא נמצא.")
         return
 
-    print(f"--- מתחיל טעינת נתונים מ- {file_path} ---")
-    
-    # וידוא שהטבלה קיימת לפני הטעינה
+    print(f"--- טוען קובץ: {file_path} ---")
     create_tables()
 
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
+            content = data
+            if isinstance(data, dict) and 'fullContent' in data:
+                content = data['fullContent']
+
             count = 0
-            if isinstance(data, list):
-                for q in data:
-                    if insert_question(q): count += 1
-            elif isinstance(data, dict):
-                if insert_question(data): count += 1
+            filename = os.path.basename(file_path)
+
+            if isinstance(content, list):
+                for q in content:
+                    if insert_question(q, filename): count += 1
+            elif isinstance(content, dict):
+                if insert_question(content, filename): count += 1
             
-            print(f"✅ סיום טעינה: נוספו {count} שאלות.")
+            print(f"✅ נטענו {count} שאלות.")
 
     except json.JSONDecodeError as e:
-        print(f"❌ שגיאה בפענוח JSON: {e}")
+        print(f"❌ שגיאה ב-JSON: {e}")
+
+def update_json_file(filename, original_q_text, new_data):
+    """עדכון הקובץ הפיזי בדיסק"""
+    if not os.path.exists(filename):
+        return False, "קובץ לא נמצא"
+    
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        questions_list = data
+        if isinstance(data, dict) and 'fullContent' in data:
+            questions_list = data['fullContent']
+        
+        found = False
+        for q in questions_list:
+            # זיהוי השאלה לפי הטקסט המקורי (לפני השינוי)
+            if q.get('question_text') == original_q_text:
+                q['question_text'] = new_data['question_text']
+                
+                # אם התשובה היא JSON List, נשמור אותה כרשימה אמיתית בקובץ
+                try:
+                    parsed_ans = json.loads(new_data['correct_answer'])
+                    if isinstance(parsed_ans, list):
+                        q['correct_answer'] = parsed_ans
+                    else:
+                        q['correct_answer'] = new_data['correct_answer']
+                except:
+                    q['correct_answer'] = new_data['correct_answer']
+
+                q['distractor_1'] = new_data['distractor_1']
+                q['distractor_2'] = new_data['distractor_2']
+                q['distractor_3'] = new_data['distractor_3']
+                q['explanation'] = new_data['explanation']
+                q['image'] = new_data['image_path']
+                q['topic'] = new_data['topic']
+                q['sub_topic'] = new_data['sub_topic']
+                found = True
+                break
+        
+        if found:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            return True, "עודכן בהצלחה"
+        else:
+            return False, "השאלה המקורית לא נמצאה בקובץ"
+
+    except Exception as e:
+        return False, str(e)

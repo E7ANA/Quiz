@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>עריכת שאלה</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+    <style>
+        .option-row:hover { background-color: #f8f9fa; }
+        .correct-mark { display: none; color: #198754; font-weight: bold; }
+        input[type="checkbox"]:checked ~ .correct-mark { display: inline-block; }
+        .input-group:has(input[type="checkbox"]:checked) input[type="text"] {
+            border-color: #198754; border-width: 2px; background-color: #f0fff4;
+        }
+        .ck-editor__editable { min-height: 200px; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <div class="card shadow border-0">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between">
+            <h4 class="mb-0">✏️ עריכה (ID: {{ q.id }})</h4>
+            <span class="badge bg-dark">{{ q.source_file }}</span>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="editForm" onsubmit="prepareSubmission(event)">
+                <input type="hidden" name="correct_answer" id="real_correct">
+                <input type="hidden" name="distractor_1" id="real_dist_1">
+                <input type="hidden" name="distractor_2" id="real_dist_2">
+                <input type="hidden" name="distractor_3" id="real_dist_3">
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="fw-bold">נושא</label>
+                        <input type="text" name="topic" class="form-control" value="{{ q.topic }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="fw-bold">תת-נושא</label>
+                        <input type="text" name="sub_topic" class="form-control" value="{{ q.sub_topic }}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="fw-bold">שאלה</label>
+                    <textarea name="question_text" class="form-control" rows="3" required>{{ q.question_text }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="fw-bold">תמונה</label>
+                    <input type="text" name="image_path" class="form-control" value="{{ q.image_path or '' }}">
+                </div>
+
+                <hr>
+                <label class="fw-bold mb-2">✅ תשובות (סמן V ליד הנכונות):</label>
+                {% for i in range(4) %}
+                <div class="input-group mb-2 option-row">
+                    <div class="input-group-text bg-white">
+                        <input class="form-check-input mt-0" type="checkbox" name="correct_idx" value="{{ i }}" 
+                               {% if i in correct_indices %}checked{% endif %}>
+                    </div>
+                    <input type="text" class="form-control visual-input" 
+                           value="{{ options[i] if i < options|length else '' }}" placeholder="תשובה...">
+                    <span class="input-group-text correct-mark">נכון</span>
+                </div>
+                {% endfor %}
+
+                <hr>
+                <div class="mb-4">
+                    <label class="fw-bold text-primary">💡 הסבר:</label>
+                    <textarea id="explanation-editor" name="explanation">{{ q.explanation }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4 border-top pt-3">
+                    <a href="{{ url_for('get_question', question_id=q.id) }}" class="btn btn-outline-secondary">ביטול</a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow">💾 שמור</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    ClassicEditor.create(document.querySelector('#explanation-editor'), { language: 'he' }).catch(console.error);
+
+    function prepareSubmission(event) {
+        const inputs = document.querySelectorAll('.visual-input');
+        const checked = document.querySelectorAll('input[name="correct_idx"]:checked');
+        
+        if (checked.length === 0) { alert("יש לסמן לפחות תשובה אחת נכונה!"); event.preventDefault(); return; }
+
+        let correct = [], dist = [];
+        inputs.forEach((input, index) => {
+            if (!input.value.trim()) return;
+            if (document.querySelector(`input[name="correct_idx"][value="${index}"]`).checked) correct.push(input.value);
+            else dist.push(input.value);
+        });
+
+        document.getElementById('real_correct').value = correct.length > 1 ? JSON.stringify(correct) : correct[0];
+        document.getElementById('real_dist_1').value = dist[0] || "";
+        document.getElementById('real_dist_2').value = dist[1] || "";
+        document.getElementById('real_dist_3').value = dist[2] || "";
+    }
+</script>
+</body>
+</html>

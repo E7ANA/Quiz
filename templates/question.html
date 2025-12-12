@@ -2,22 +2,17 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>תרגול - {{ question['topic'] }}</title>
+    <title>תרגול</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f8f9fa; font-size: 0.95rem; }
-        .answer-btn { white-space: normal; transition: transform 0.1s; }
-        .answer-btn:active { transform: scale(0.98); }
-        .img-preview { cursor: zoom-in; transition: opacity 0.2s; }
-        .img-preview:hover { opacity: 0.9; }
-        
-        /* ניווט */
+        body { background-color: #f8f9fa; }
+        .answer-lbl { white-space: normal; transition: all 0.1s; }
+        .img-preview { cursor: zoom-in; }
         .nav-square { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border-radius: 4px; text-decoration: none; border: 1px solid #dee2e6; color: #6c757d; }
-        .nav-square:hover { background-color: #e9ecef; color: #495057; }
-        .nav-square-active { background-color: #198754 !important; border-color: #198754 !important; color: white !important; font-weight: bold; transform: scale(1.1); }
-        .nav-square-answered { background-color: #0d6efd; border-color: #0d6efd; color: white !important; }
+        .nav-square:hover { background-color: #e9ecef; }
+        .nav-square-active { background-color: #198754 !important; color: white !important; font-weight: bold; transform: scale(1.1); }
+        .nav-square-answered { background-color: #0d6efd; color: white !important; border-color: #0d6efd; }
     </style>
 </head>
 <body>
@@ -25,7 +20,7 @@
 <nav class="navbar navbar-dark bg-dark mb-3 shadow-sm py-1">
     <div class="container-fluid">
         <a class="navbar-brand fs-6" href="{{ url_for('index') }}">🏠 ראשי</a>
-        <span class="navbar-text text-white fs-6">תרגול רפואי</span>
+        <span class="text-white">שאלה {{ current_q_in_category }} מתוך {{ total_q_in_category }}</span>
     </div>
 </nav>
 
@@ -34,53 +29,62 @@
         <main class="col-12 col-md-8 col-lg-9 order-1 order-md-2 mb-3">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between">
                         <span class="badge bg-primary">{{ question['topic'] }}</span>
                         <small class="text-muted">ID: {{ question['id'] }}</small>
                     </div>
-                    <div class="mt-1 d-flex justify-content-between">
-                         <h6 class="text-primary mb-0 fw-bold">{{ question['sub_topic'] }}</h6>
-                         <small class="text-secondary fw-bold">שאלה {{ current_q_in_category }} / {{ total_q_in_category }}</small>
-                    </div>
+                    <div class="fw-bold text-primary mt-1">{{ question['sub_topic'] }}</div>
                 </div>
                 
                 <div class="card-body">
-                    <h5 class="card-title lh-base mb-3">{{ question['question_text'] }}</h5>
+                    {% if request.args.get('edited') %}
+                    <div class="alert alert-success fade show p-2 mb-3 small">✅ עודכן בהצלחה! <button type="button" class="btn-close p-2" data-bs-dismiss="alert"></button></div>
+                    {% endif %}
+
+                    <h5 class="lh-base mb-3">{{ question['question_text'] }}</h5>
 
                     {% if question['image_path'] %}
-                    <div class="text-center mb-4 bg-light p-3 rounded border">
-                        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" 
-                             class="img-fluid rounded shadow-sm img-preview" 
-                             style="max-height: 300px;"
-                             data-bs-toggle="modal" data-bs-target="#imageModal">
-                        <div class="text-muted small mt-2"><i class="bi bi-zoom-in"></i> לחץ להגדלה</div>
+                    <div class="text-center mb-4 bg-light p-2 rounded border">
+                        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" class="img-fluid rounded shadow-sm img-preview" style="max-height: 250px;" data-bs-toggle="modal" data-bs-target="#imageModal">
                     </div>
                     {% endif %}
                     
+                    {% set is_multi = '[' in question['correct_answer'] and ']' in question['correct_answer'] %}
+                    {% if is_multi %}
+                    <div class="alert alert-info py-1 px-2 small mb-3 border-info text-info-emphasis">
+                        <i class="bi bi-ui-checks"></i> <strong>בחירה מרובה:</strong> סמן את כל התשובות הנכונות.
+                    </div>
+                    {% endif %}
+
                     <form id="quiz-form">
                         <input type="hidden" name="question_id" value="{{ question['id'] }}">
                         <div class="d-grid gap-2"> 
                             {% for option in options %}
-                            <button type="button" class="btn btn-outline-dark text-start answer-btn" onclick="submitAnswer(this, '{{ option }}')">
-                                {{ option }}
-                            </button>
+                            <div class="position-relative">
+                                <input type="{{ 'checkbox' if is_multi else 'radio' }}" class="btn-check" name="selected_answer" id="opt-{{ loop.index }}" value="{{ option }}" autocomplete="off" {% if not is_multi %}onclick="checkNow()"{% endif %}>
+                                <label class="btn btn-outline-dark text-start w-100 answer-lbl py-2 px-3" for="opt-{{ loop.index }}">{{ option }}</label>
+                            </div>
                             {% endfor %}
                         </div>
+                        {% if is_multi %}
+                        <button type="button" class="btn btn-primary w-100 mt-3 shadow-sm fw-bold" onclick="checkNow()">בדוק 🔍</button>
+                        {% endif %}
                     </form>
 
                     <div id="result-area" class="mt-3" style="display: none;">
                         <div id="alert-box" class="alert p-2 mb-2 shadow-sm"></div>
                         <div class="card bg-light border-0 shadow-sm">
                             <div class="card-body py-2">
-                                <h6 class="fw-bold text-decoration-underline text-primary small">הסבר:</h6>
-                                <p id="explanation-text" class="mb-0 small lh-base"></p>
+                                <h6 class="fw-bold text-primary small text-decoration-underline">הסבר:</h6>
+                                <div id="explanation-text" class="small lh-base"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card-footer bg-light d-flex justify-content-between">
+                <div class="card-footer bg-light d-flex justify-content-between align-items-center">
                     <a href="{{ url_for('get_question', question_id=prev_id) if prev_id else '#' }}" class="btn btn-sm btn-outline-secondary px-3 {% if not prev_id %}disabled{% endif %}">➜ קודם</a>
+                    <a href="{{ url_for('edit_question', question_id=question['id']) }}" class="btn btn-sm btn-outline-warning text-dark fw-bold border-0"><i class="bi bi-pencil-fill"></i></a>
                     <a href="{{ url_for('get_question', question_id=next_id) if next_id else url_for('index') }}" class="btn btn-sm btn-primary px-3 fw-bold">{% if next_id %}הבא ⬅{% else %}סיום 🏁{% endif %}</a>
                 </div>
             </div>
@@ -98,12 +102,7 @@
                                     <div class="text-muted" style="font-size: 0.7rem;">{{ sub }}</div>
                                     <div class="d-flex flex-wrap gap-1">
                                         {% for q_data in questions %}
-                                            <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
-                                               id="nav-sq-{{ q_data.id }}"
-                                               class="nav-square {% if q_data.id == question.id %}nav-square-active{% else %}nav-square-default{% endif %}"
-                                               title="{{ q_data.text }}">
-                                                {{ q_data.number }}
-                                            </a>
+                                            <a href="{{ url_for('get_question', question_id=q_data.id) }}" id="nav-sq-{{ q_data.id }}" class="nav-square {% if q_data.id == question.id %}nav-square-active{% else %}nav-square-default{% endif %}">{{ q_data.number }}</a>
                                         {% endfor %}
                                     </div>
                                 </div>
@@ -117,31 +116,17 @@
 </div>
 
 {% if question['image_path'] %}
-<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content bg-transparent border-0">
-      <div class="modal-body text-center position-relative">
-        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
-        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" class="img-fluid rounded shadow">
-      </div>
-    </div>
-  </div>
-</div>
+<div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content bg-transparent border-0"><div class="modal-body text-center position-relative"><button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button><img src="{{ url_for('serve_image', filename=question['image_path']) }}" class="img-fluid rounded shadow"></div></div></div></div>
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // --- 1. תיקון הגלילה: שמירת מיקום הסרגל ---
     document.addEventListener("DOMContentLoaded", function() {
         const sidebar = document.getElementById("sidebar-content");
         if (sidebar) {
             const scrollPos = localStorage.getItem("practiceSidebarScrollPos");
-            if (scrollPos) {
-                sidebar.scrollTop = scrollPos;
-            }
-            window.addEventListener("beforeunload", function() {
-                localStorage.setItem("practiceSidebarScrollPos", sidebar.scrollTop);
-            });
+            if (scrollPos) sidebar.scrollTop = scrollPos;
+            window.addEventListener("beforeunload", () => localStorage.setItem("practiceSidebarScrollPos", sidebar.scrollTop));
         }
         markAnsweredQuestions();
     });
@@ -149,43 +134,34 @@
     function markAnsweredQuestions() {
         const answeredIds = JSON.parse(localStorage.getItem('answered_questions') || '[]');
         answeredIds.forEach(id => {
-            const square = document.getElementById(`nav-sq-${id}`);
-            if (square && !square.classList.contains('nav-square-active')) {
-                square.classList.add('nav-square-answered');
-            }
+            const sq = document.getElementById(`nav-sq-${id}`);
+            if (sq && !sq.classList.contains('nav-square-active')) sq.classList.add('nav-square-answered');
         });
     }
 
-    function submitAnswer(btn, selectedOption) {
+    function checkNow() {
         const form = document.getElementById('quiz-form');
-        const qId = form.querySelector('input[name="question_id"]').value;
-        const btns = form.querySelectorAll('button');
-        
-        btns.forEach(b => b.classList.add('disabled')); 
+        const fd = new FormData(form);
+        form.querySelectorAll('input, button').forEach(el => el.disabled = true);
 
-        const fd = new FormData();
-        fd.append('question_id', qId);
-        fd.append('selected_answer', selectedOption);
-
-        fetch('/check_answer', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(data => {
+        fetch('/check_answer', { method: 'POST', body: fd }).then(r => r.json()).then(data => {
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('explanation-text').innerHTML = data.explanation;
             
-            if(data.is_correct) {
-                btn.classList.replace('btn-outline-dark', 'btn-success');
-                document.getElementById('alert-box').className = 'alert alert-success fw-bold py-1';
-                document.getElementById('alert-box').innerHTML = '✅ נכון!';
-            } else {
-                btn.classList.replace('btn-outline-dark', 'btn-danger');
-                document.getElementById('alert-box').className = 'alert alert-danger fw-bold py-1';
-                document.getElementById('alert-box').innerHTML = '❌ טעות.';
-                btns.forEach(b => {
-                    if(b.innerText.includes(data.correct_answer)) b.classList.replace('btn-outline-dark', 'btn-success');
-                });
-            }
+            const alertBox = document.getElementById('alert-box');
+            alertBox.className = `alert fw-bold py-1 alert-${data.status === 'correct' ? 'success' : (data.status === 'partial' ? 'warning' : 'danger')}`;
+            alertBox.innerHTML = data.message;
+
+            document.querySelectorAll('input[name="selected_answer"]').forEach(input => {
+                const label = document.querySelector(`label[for="${input.id}"]`);
+                const val = input.value.trim();
+                const isCorrect = data.correct_answers.some(c => c.trim() === val);
+
+                if (isCorrect) { label.classList.remove('btn-outline-dark'); label.classList.add('btn-success'); }
+                else if (input.checked) { label.classList.remove('btn-outline-dark'); label.classList.add('btn-danger'); }
+            });
             
+            const qId = form.querySelector('input[name="question_id"]').value;
             let ans = JSON.parse(localStorage.getItem('answered_questions') || '[]');
             if(!ans.includes(parseInt(qId))) {
                 ans.push(parseInt(qId));
