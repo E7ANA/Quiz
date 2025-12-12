@@ -2,17 +2,18 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>תרגול</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body { background-color: #f8f9fa; }
-        .answer-lbl { white-space: normal; transition: all 0.1s; }
+        body { background-color: #f8f9fa; font-size: 0.95rem; }
+        .answer-lbl { white-space: normal; transition: all 0.1s; border-width: 2px; }
         .img-preview { cursor: zoom-in; }
         .nav-square { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border-radius: 4px; text-decoration: none; border: 1px solid #dee2e6; color: #6c757d; }
         .nav-square:hover { background-color: #e9ecef; }
-        .nav-square-active { background-color: #198754 !important; color: white !important; font-weight: bold; transform: scale(1.1); }
-        .nav-square-answered { background-color: #0d6efd; color: white !important; border-color: #0d6efd; }
+        .nav-square-active { background-color: #198754 !important; border-color: #198754 !important; color: white !important; font-weight: bold; transform: scale(1.1); }
+        .nav-square-answered { background-color: #0d6efd; border-color: #0d6efd; color: white !important; }
     </style>
 </head>
 <body>
@@ -38,14 +39,20 @@
                 
                 <div class="card-body">
                     {% if request.args.get('edited') %}
-                    <div class="alert alert-success fade show p-2 mb-3 small">✅ עודכן בהצלחה! <button type="button" class="btn-close p-2" data-bs-dismiss="alert"></button></div>
+                    <div class="alert alert-success alert-dismissible fade show p-2 mb-3 small">
+                        ✅ עודכן בהצלחה!
+                        <button type="button" class="btn-close p-2" data-bs-dismiss="alert"></button>
+                    </div>
                     {% endif %}
 
                     <h5 class="lh-base mb-3">{{ question['question_text'] }}</h5>
 
                     {% if question['image_path'] %}
                     <div class="text-center mb-4 bg-light p-2 rounded border">
-                        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" class="img-fluid rounded shadow-sm img-preview" style="max-height: 250px;" data-bs-toggle="modal" data-bs-target="#imageModal">
+                        <img src="{{ url_for('serve_image', filename=question['image_path']) }}" 
+                             class="img-fluid rounded shadow-sm img-preview" 
+                             style="max-height: 250px;"
+                             data-bs-toggle="modal" data-bs-target="#imageModal">
                     </div>
                     {% endif %}
                     
@@ -61,13 +68,25 @@
                         <div class="d-grid gap-2"> 
                             {% for option in options %}
                             <div class="position-relative">
-                                <input type="{{ 'checkbox' if is_multi else 'radio' }}" class="btn-check" name="selected_answer" id="opt-{{ loop.index }}" value="{{ option }}" autocomplete="off" {% if not is_multi %}onclick="checkNow()"{% endif %}>
-                                <label class="btn btn-outline-dark text-start w-100 answer-lbl py-2 px-3" for="opt-{{ loop.index }}">{{ option }}</label>
+                                <input type="{{ 'checkbox' if is_multi else 'radio' }}" 
+                                       class="btn-check" 
+                                       name="selected_answer" 
+                                       id="opt-{{ loop.index }}" 
+                                       value="{{ option }}" 
+                                       autocomplete="off"
+                                       {% if not is_multi %}onclick="checkNow()"{% endif %}>
+                                
+                                <label class="btn btn-outline-dark text-start w-100 answer-lbl py-2 px-3" for="opt-{{ loop.index }}">
+                                    {{ option }}
+                                </label>
                             </div>
                             {% endfor %}
                         </div>
+
                         {% if is_multi %}
-                        <button type="button" class="btn btn-primary w-100 mt-3 shadow-sm fw-bold" onclick="checkNow()">בדוק 🔍</button>
+                        <button type="button" class="btn btn-primary w-100 mt-3 shadow-sm fw-bold" onclick="checkNow()">
+                            בדוק תשובה 🔍
+                        </button>
                         {% endif %}
                     </form>
 
@@ -83,9 +102,26 @@
                 </div>
 
                 <div class="card-footer bg-light d-flex justify-content-between align-items-center">
-                    <a href="{{ url_for('get_question', question_id=prev_id) if prev_id else '#' }}" class="btn btn-sm btn-outline-secondary px-3 {% if not prev_id %}disabled{% endif %}">➜ קודם</a>
-                    <a href="{{ url_for('edit_question', question_id=question['id']) }}" class="btn btn-sm btn-outline-warning text-dark fw-bold border-0"><i class="bi bi-pencil-fill"></i></a>
-                    <a href="{{ url_for('get_question', question_id=next_id) if next_id else url_for('index') }}" class="btn btn-sm btn-primary px-3 fw-bold">{% if next_id %}הבא ⬅{% else %}סיום 🏁{% endif %}</a>
+                    <a href="{{ url_for('get_question', question_id=prev_id) if prev_id else '#' }}" 
+                       class="btn btn-sm btn-outline-secondary px-3 {% if not prev_id %}disabled{% endif %}">➜ קודם</a>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('edit_question', question_id=question['id']) }}" 
+                           class="btn btn-sm btn-outline-warning text-dark fw-bold border-0" title="עריכה">
+                            <i class="bi bi-pencil-fill"></i>
+                        </a>
+
+                        <form action="{{ url_for('delete_question', question_id=question['id']) }}" method="POST" 
+                              onsubmit="return confirm('האם אתה בטוח שברצונך למחוק שאלה זו לצמיתות? הפעולה תמחק אותה גם מקובץ המקור.');"
+                              style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="מחיקה">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <a href="{{ url_for('get_question', question_id=next_id) if next_id else url_for('index') }}" 
+                       class="btn btn-sm btn-primary px-3 fw-bold">{% if next_id %}הבא ⬅{% else %}סיום 🏁{% endif %}</a>
                 </div>
             </div>
         </main>
@@ -102,7 +138,12 @@
                                     <div class="text-muted" style="font-size: 0.7rem;">{{ sub }}</div>
                                     <div class="d-flex flex-wrap gap-1">
                                         {% for q_data in questions %}
-                                            <a href="{{ url_for('get_question', question_id=q_data.id) }}" id="nav-sq-{{ q_data.id }}" class="nav-square {% if q_data.id == question.id %}nav-square-active{% else %}nav-square-default{% endif %}">{{ q_data.number }}</a>
+                                            <a href="{{ url_for('get_question', question_id=q_data.id) }}" 
+                                               id="nav-sq-{{ q_data.id }}"
+                                               class="nav-square {% if q_data.id == question.id %}nav-square-active{% else %}nav-square-default{% endif %}"
+                                               title="{{ q_data.text }}">
+                                                {{ q_data.number }}
+                                            </a>
                                         {% endfor %}
                                     </div>
                                 </div>
@@ -142,6 +183,7 @@
     function checkNow() {
         const form = document.getElementById('quiz-form');
         const fd = new FormData(form);
+        
         form.querySelectorAll('input, button').forEach(el => el.disabled = true);
 
         fetch('/check_answer', { method: 'POST', body: fd }).then(r => r.json()).then(data => {

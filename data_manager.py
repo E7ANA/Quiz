@@ -5,86 +5,94 @@ import os
 DB_FILE = 'quiz_db.sqlite'
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
+    # check_same_thread=False מאפשר גמישות בעבודה עם Flask
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
-def create_tables():
+def rebuild_database():
+    """מוחק את הטבלה ויוצר אותה מחדש נקייה"""
+    print("♻️  בונה מחדש את מסד הנתונים...")
     conn = get_db_connection()
-    # הוספנו את העמודה source_file
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS Questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_text TEXT NOT NULL,
-            correct_answer TEXT NOT NULL,
-            distractor_1 TEXT,
-            distractor_2 TEXT,
-            distractor_3 TEXT,
-            explanation TEXT,
-            topic TEXT,
-            sub_topic TEXT,
-            image_path TEXT,
-            source_file TEXT
-        );
-    """)
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("DROP TABLE IF EXISTS Questions;")
+        conn.execute("""
+            CREATE TABLE Questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_text TEXT NOT NULL,
+                correct_answer TEXT NOT NULL,
+                distractor_1 TEXT,
+                distractor_2 TEXT,
+                distractor_3 TEXT,
+                explanation TEXT,
+                topic TEXT,
+                sub_topic TEXT,
+                image_path TEXT,
+                source_file TEXT
+            );
+        """)
+        conn.commit()
+        print("✅ טבלאות נוצרו בהצלחה.")
+    except Exception as e:
+        print(f"❌ שגיאה בבניית DB: {e}")
+    finally:
+        conn.close()
 
 def insert_question(question_data: dict, filename: str):
+    conn = get_db_connection()
     try:
-        conn = get_db_connection()
         cursor = conn.cursor()
-
+        
         q_text = question_data.get('question_text')
         c_answer = question_data.get('correct_answer')
         
-        # תמיכה ברשימת תשובות (המרה ל-JSON string אם זה list)
+        # המרה ל-JSON string אם זו רשימה (עבור בחירה מרובה)
         if isinstance(c_answer, list):
             c_answer = json.dumps(c_answer, ensure_ascii=False)
+        # המרה למחרוזת אם זה מספר או משהו אחר
+        else:
+            c_answer = str(c_answer)
 
         if not q_text or not c_answer:
             return False
 
-        img_path = question_data.get('image') 
-
-        sql_insert = """
+        sql = """
             INSERT INTO Questions (
                 question_text, correct_answer, distractor_1, distractor_2, 
                 distractor_3, explanation, topic, sub_topic, image_path, source_file
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         
-        cursor.execute(sql_insert, (
-            q_text, c_answer, 
-            question_data.get('distractor_1'), 
-            question_data.get('distractor_2'), 
-            question_data.get('distractor_3'), 
-            question_data.get('explanation'), 
+        cursor.execute(sql, (
+            q_text, 
+            c_answer, 
+            str(question_data.get('distractor_1', '') or ''), 
+            str(question_data.get('distractor_2', '') or ''), 
+            str(question_data.get('distractor_3', '') or ''), 
+            question_data.get('explanation', ''), 
             question_data.get('topic', 'כללי'), 
             question_data.get('sub_topic', 'ללא פרק'),
-            img_path,
+            question_data.get('image', ''), # שים לב: ב-JSON זה 'image', ב-DB זה 'image_path'
             filename
         ))
-
         conn.commit()
-        conn.close()
         return True
-
     except sqlite3.Error as e:
-        print(f"❌ שגיאה ב-SQLite: {e}")
+        print(f"❌ שגיאה בהכנסת שאלה: {e}")
         return False
+    finally:
+        conn.close()
 
 def load_questions_from_file(file_path: str):
     if not os.path.exists(file_path):
         return
 
     print(f"--- טוען קובץ: {file_path} ---")
-    create_tables()
-
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
+            # תמיכה בפורמט dict עם fullContent או list ישיר
             content = data
             if isinstance(data, dict) and 'fullContent' in data:
                 content = data['fullContent']
@@ -98,37 +106,33 @@ def load_questions_from_file(file_path: str):
             elif isinstance(content, dict):
                 if insert_question(content, filename): count += 1
             
-            print(f"✅ נטענו {count} שאלות.")
+            print(f"✅ נטענו {count} שאלות מתוך {filename}.")
 
-    except json.JSONDecodeError as e:
-        print(f"❌ שגיאה ב-JSON: {e}")
+    except Exception as e:
+        print(f"❌ שגיאה בטעינת הקובץ {file_path}: {e}")
 
 def update_json_file(filename, original_q_text, new_data):
-    """עדכון הקובץ הפיזי בדיסק"""
-    if not os.path.exists(filename):
-        return False, "קובץ לא נמצא"
-    
+    if not os.path.exists(filename): return False, "קובץ לא נמצא"
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        questions_list = data
+        # זיהוי מבנה הקובץ
+        content_list = data
+        is_wrapper = False
         if isinstance(data, dict) and 'fullContent' in data:
-            questions_list = data['fullContent']
+            content_list = data['fullContent']
+            is_wrapper = True
         
         found = False
-        for q in questions_list:
-            # זיהוי השאלה לפי הטקסט המקורי (לפני השינוי)
+        for q in content_list:
             if q.get('question_text') == original_q_text:
                 q['question_text'] = new_data['question_text']
                 
-                # אם התשובה היא JSON List, נשמור אותה כרשימה אמיתית בקובץ
+                # נסיון להמיר חזרה לרשימה אם זה JSON valid
                 try:
-                    parsed_ans = json.loads(new_data['correct_answer'])
-                    if isinstance(parsed_ans, list):
-                        q['correct_answer'] = parsed_ans
-                    else:
-                        q['correct_answer'] = new_data['correct_answer']
+                    parsed = json.loads(new_data['correct_answer'])
+                    q['correct_answer'] = parsed if isinstance(parsed, list) else new_data['correct_answer']
                 except:
                     q['correct_answer'] = new_data['correct_answer']
 
@@ -146,8 +150,38 @@ def update_json_file(filename, original_q_text, new_data):
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
             return True, "עודכן בהצלחה"
-        else:
-            return False, "השאלה המקורית לא נמצאה בקובץ"
+        return False, "השאלה המקורית לא נמצאה"
 
     except Exception as e:
         return False, str(e)
+
+def delete_question_from_file(filename, question_text):
+    if not os.path.exists(filename): return False
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        content_list = data
+        is_wrapper = False
+        if isinstance(data, dict) and 'fullContent' in data:
+            content_list = data['fullContent']
+            is_wrapper = True
+        
+        # סינון (יצירת רשימה חדשה ללא השאלה המדוברת)
+        original_len = len(content_list)
+        new_list = [q for q in content_list if q.get('question_text') != question_text]
+        
+        if len(new_list) == original_len:
+            return False # לא נמצאה שאלה למחיקה
+
+        if is_wrapper:
+            data['fullContent'] = new_list
+        else:
+            data = new_list
+            
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error deleting: {e}")
+        return False
